@@ -2,6 +2,10 @@
 
 Personal nutrition journal for New & Ben, with a shared cookbook and separate daily tracking.
 
+- Live app: https://daily-fuel-inky.vercel.app
+- Public source: https://github.com/thossapron29/daily-fuel
+- Hosting: Vercel, linked to the repository's `main` branch.
+
 ## Connected Supabase project
 
 - Project: **daily-fuel** (`qkyqiufpluxfgyjhtqzr`)
@@ -10,7 +14,7 @@ Personal nutrition journal for New & Ben, with a shared cookbook and separate da
 - Dashboard: https://supabase.com/dashboard/project/qkyqiufpluxfgyjhtqzr
 - The full schema in `supabase/schema.sql` has already been applied as the remote `init_daily_fuel` migration. It is a fresh-project bootstrap, not a script to rerun over an existing installation.
 - `.env.local` contains the project URL and public publishable key. It is ignored by Git. No service-role/secret key is used in the browser.
-- Auth Site URL is `http://localhost:3001`, with exact redirect URLs `http://localhost:3001` and `http://localhost:3001/`. Email confirmation remains enabled.
+- Auth Site URL is `https://daily-fuel-inky.vercel.app`. Exact redirect URLs allow the production root (with and without a trailing slash) and `http://localhost:3001` (with and without a trailing slash). Email confirmation remains enabled.
 
 ## Run and sign in
 
@@ -25,6 +29,8 @@ Create an account in the Daily Fuel app, confirm its email, then sign in. Use th
 Data is fetched on sign-in or refresh. Loading failures show a retry screen instead of misleading empty totals. The two profile slots are initialized with an idempotent upsert, so concurrent first logins do not overwrite settings. Supabase is the source of truth; changes are not mirrored into the old local demo snapshot.
 
 ## Bring existing browser data into Supabase
+
+Browser storage belongs to its origin: if your existing data was entered on `localhost:3001`, sign into that local app with the same account and import there. It will then be available on the live app after refresh.
 
 After signing into an empty household, the app offers **นำเข้าข้อมูลเดิม** when it finds a valid `dailyfuel` snapshot in that browser. Import before entering new cloud meals or recipes.
 
@@ -79,6 +85,10 @@ npx tsc --noEmit
 
 Browser tests cover sign-in-session loading, cloud error/retry, local import success/failure, backup retention and sign-out using mocked Auth/REST responses. No email or password belonging to the user is used in automated tests, and no real verification email is sent by tests.
 
-## Deploy later
+## Deployment
 
-Set the same project URL and publishable key in the deployment environment. Set the production Auth Site URL and explicitly allow that deployment's redirect URL in the Supabase dashboard before enabling sign-ups there. The current localhost URL is for local development only.
+Vercel project `daily-fuel` in `thossapron29's projects` is linked to this public GitHub repository. Pushes to `main` trigger production deployments. Production and Preview have `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` configured in Vercel; `.env.local` is not committed.
+
+The public repository excludes environment files, local agent skills, generated review screenshots, dependencies and build output. Profile defaults are generic examples; existing Supabase settings are retained via the initializer's ignore-duplicates behavior.
+
+For a future custom domain, update the Supabase Auth Site URL and add only the intended exact redirect URLs. No service-role key is needed by this app.
