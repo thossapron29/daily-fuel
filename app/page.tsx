@@ -90,7 +90,7 @@ export default function Home(){
    const a=entries.filter(x=>x.id!==id);save(profiles,a);setEntries(a);
   }catch(error){setError(messageOf(error,'ลบรายการอาหารไม่สำเร็จ'))}
  }
- async function saveRecipe(draft:RecipeDraft):Promise<boolean>{
+ async function saveRecipe(draft:RecipeDraft):Promise<Recipe|null>{
   setError('');
   try{
    const x=buildRecipe(draft,draft.id||uid());
@@ -105,8 +105,8 @@ export default function Home(){
    const next=draft.id?recipes.map(recipe=>recipe.id===x.id?x:recipe):[...recipes,x];
    save(profiles,entries,next);
    setRecipes(next);
-   return true;
-  }catch(error){setError(error instanceof Error?error.message:'บันทึกสูตรไม่สำเร็จ ตรวจสอบข้อมูลและลองอีกครั้ง');return false}
+   return x;
+  }catch(error){setError(error instanceof Error?error.message:'บันทึกสูตรไม่สำเร็จ ตรวจสอบข้อมูลและลองอีกครั้ง');return null}
  }
  async function logRecipe(recipe:Recipe,log:RecipeLog):Promise<boolean>{
   setError('');

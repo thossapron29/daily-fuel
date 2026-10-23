@@ -62,13 +62,15 @@ Macro grams use the selected calorie goal, at 4 kcal/g for protein/carbohydrates
 
 ## Recipe Builder
 
-Choose ingredients, raw/cooked state and grams for the full batch. Switching state selects a different source record, not an invented raw-to-cooked weight conversion. Nutrition scales from per-100g source values; the source energy field is preserved rather than reconstructed using 4/4/9.
+The cookbook starts with saved recipes and a create button. Creating or editing a recipe has three steps: ingredients for the full batch, name/servings (and optional measured cooked yield), then review/save. Search and select an ingredient, choose its weighed state and enter grams; source details are available in a disclosure. Switching state selects a different source record, not an invented raw-to-cooked weight conversion. Nutrition scales from per-100g source values; the source energy field is preserved rather than reconstructed using 4/4/9.
 
 `lib/foods.ts` contains 13 curated USDA FoodData Central / SR Legacy records verified through the official Food Details API on 2026-10-23. This is an offline starter catalog, not live USDA search. Each record links to its FDC source. The catalog includes ground beef with specified fat percentages, rice, chicken breast, boiled egg, olive oil, salt, water and Greek yogurt. Match the source preparation description to the food actually weighed.
 
 For brands/condiments, enter the label's reference grams and nutrients (e.g. per 15 g). The app normalizes the basis automatically. Saved product-label ingredients become available in later recipes and are marked as manually entered rather than USDA-verified.
 
-Save servings and optionally measured cooked yield. Gram portions require cooked yield; it is never inferred from raw ingredient weights. New and Ben can log different amounts, including fractional servings, in one operation. Blank/zero skips that person; the whole recipe need not be consumed. This is portion logging, not batch inventory management. The estimate assumes evenly mixed food; drained liquids, discarded oil and uneven servings can affect it.
+Saving a recipe does not count it as eaten. **Add a meal** opens saved recipe selection, then the same portion form used by cookbook cards. Meal shortcuts preserve Breakfast/Lunch/Dinner/Snack. Creating a recipe from this dialog also preserves the intended meal for the follow-up log. Manual calorie/macro entry is a secondary option under the nutrition-info disclosure.
+
+Save servings and optionally measured cooked yield. Gram portions require cooked yield; it is never inferred from raw ingredient weights. Select the people eating and enter a positive amount for each. New and Ben can log different amounts, including fractional servings, in one operation. Unchecked people receive no entry; the whole recipe need not be consumed. This is portion logging, not batch inventory management. The estimate assumes evenly mixed food; drained liquids, discarded oil and uneven servings can affect it.
 
 Editing a recipe preserves past diary nutrition. Legacy manually entered recipes remain available for serving-based logging. Sodium tracking, Thai FCD integration and live ingredient search are not part of this version.
 
@@ -84,6 +86,8 @@ npx tsc --noEmit
 `supabase/verify.sql` uses a transaction with disposable reserved test identities and rolls everything back. It verifies CRUD, import retries, atomic rollback, profile mapping, immutable diary snapshots and account isolation. It has been executed successfully against this project. Anonymous REST reads were checked and rejected with 401. The Supabase security advisor returned no findings.
 
 Browser tests cover sign-in-session loading, cloud error/retry, local import success/failure, backup retention and sign-out using mocked Auth/REST responses. No email or password belonging to the user is used in automated tests, and no real verification email is sent by tests.
+
+The guided cookbook/meal UI was also exercised in an isolated in-memory preview using the actual Workspace components, at desktop and 390px widths. Checks included raw/cooked ingredients, label-basis scaling, recipe save without consumption, separate profile portions, Dashboard/diary totals, measured-yield gram portions and empty-person validation. These checks did not write to a real user's Supabase records.
 
 ## Deployment
 

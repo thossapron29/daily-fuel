@@ -1,11 +1,12 @@
 'use client';
 
-import {useEffect, useRef, useState, type Dispatch, type SetStateAction} from 'react';
+import {useState, type Dispatch, type SetStateAction} from 'react';
 import {ArrowUpRight, ArrowRight, Plus, X, Sun, LayoutDashboard, Utensils, BookOpen, Scale, Settings, ChevronLeft, ChevronRight, CalendarDays, Flame, Leaf, Heart, Check, LogOut} from 'lucide-react';
 import {type Profile, type Entry, type Recipe, target, tdee, bmr, today} from '../lib/data';
 import {goalOption, isCustomGoal, macroOption, macroTargets} from '../lib/nutrition';
 import NutritionSettings from './nutrition-settings';
 import RecipeBuilder from './recipe-builder';
+import MealDialog from './meal-dialog';
 import type {RecipeDraft, RecipeLog} from '../lib/recipes';
 
 type FoodDraft = {name:string; meal:string; calories:number; protein:number; carbs:number; fat:number};
@@ -21,7 +22,7 @@ type Props = {
   entries:Entry[]; recipes:Recipe[]; weights:Weight[];
   food:FoodDraft; setFood:Setter<FoodDraft>;
   weight:number; setWeight:Setter<number>;
-  addFood:()=>Promise<boolean>; removeFood:(id:string)=>Promise<void>; saveRecipe:(draft:RecipeDraft)=>Promise<boolean>; logRecipe:(recipe:Recipe,log:RecipeLog)=>Promise<boolean>;
+  addFood:()=>Promise<boolean>; removeFood:(id:string)=>Promise<void>; saveRecipe:(draft:RecipeDraft)=>Promise<Recipe|null>; logRecipe:(recipe:Recipe,log:RecipeLog)=>Promise<boolean>;
   saveProfile:(profile:Profile)=>Promise<boolean>; addWeight:()=>Promise<void>;
 };
 
@@ -41,12 +42,8 @@ export default function Workspace(props:Props) {
     profiles, who, setWho, tab, setTab, day, setDay, entries, recipes, weights,
     food, setFood, weight, setWeight, addFood, removeFood, saveRecipe, logRecipe, saveProfile, addWeight} = props;
   const [foodOpen, setFoodOpen] = useState(false);
-  const [savingFood, setSavingFood] = useState(false);
-  const dialog = useRef<HTMLDialogElement>(null);
-  useEffect(() => {
-    if (foodOpen && !dialog.current?.open) dialog.current?.showModal();
-    else if (!foodOpen && dialog.current?.open) dialog.current.close();
-  }, [foodOpen]);
+  const [cookbookStart,setCookbookStart]=useState(false);
+  const [mealMessage,setMealMessage]=useState('');
   const p = profiles.find(x=>x.id===who)!;
   const eaten = entries.reduce((sum,x)=>sum+Number(x.calories),0);
   const goal = target(p);
@@ -65,7 +62,7 @@ export default function Workspace(props:Props) {
     d.setDate(d.getDate()+amount);
     setDay(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`);
   }
-  function openFood(meal='Lunch') { setFood({...food,meal}); setFoodOpen(true); }
+  function openFood(meal='Lunch') { setMealMessage('');setError('');setFood({...food,meal}); setFoodOpen(true); }
 
 
   if (cloud && !account) return <div className="auth">
@@ -82,7 +79,7 @@ export default function Workspace(props:Props) {
   return <div className="shell">
     <header className="topbar">
       <button className="brand-button" aria-label="Daily Fuel home" onClick={()=>setTab('Dashboard')}><Brand/></button>
-      <nav aria-label="Main navigation">{navigation.map(({name,icon:Icon})=><button key={name} className={tab===name?'selected':''} aria-current={tab===name?'page':undefined} onClick={()=>setTab(name)}><Icon size={17}/><span>{name}</span></button>)}</nav>
+      <nav aria-label="Main navigation">{navigation.map(({name,icon:Icon})=><button key={name} className={tab===name?'selected':''} aria-current={tab===name?'page':undefined} onClick={()=>{setCookbookStart(false);setMealMessage('');setTab(name)}}><Icon size={17}/><span>{name}</span></button>)}</nav>
       <div className="top-actions">
         <button className={'icon-button settings-button '+(tab==='Settings'?'active':'')} aria-label="Settings" onClick={()=>setTab('Settings')}><Settings size={20}/></button><span className="top-divider"/>
         <div className="profile-switch" aria-label="Select profile">{profiles.map(profile=><button key={profile.id} aria-label={profile.name} className={who===profile.id?'chosen':''} aria-pressed={who===profile.id} onClick={()=>{setWho(profile.id)}}><Avatar ben={profile.id==='ben'}/><span>{profile.name}</span>{who===profile.id&&<Check size={12}/>}</button>)}</div>
@@ -96,6 +93,7 @@ export default function Workspace(props:Props) {
         <p className="sub">{tab==='Dashboard'?`วันนี้กินดี ดูแลตัวเองไปด้วยกันนะ ${p.name}`:tab==='Food diary'?'ทุกมื้อเล็กๆ คือส่วนหนึ่งของการดูแลตัวเอง':tab==='My recipes'?'สูตรโปรดจากครัวของเรา แชร์กันได้ทั้งนิวและเบ้น':tab==='Weight log'?'ค่อยๆ ดูแลตัวเอง ในจังหวะที่เป็นคุณ':'ปรับข้อมูลและเป้าหมายให้เหมาะกับตัวเอง'}</p>
       </div>{['Dashboard','Food diary'].includes(tab)&&<button className="primary add-food" onClick={()=>openFood()}><Plus size={19}/> Add a meal</button>}</div>
 
+      <p className="meal-status" role="status">{mealMessage}</p>
       {cloudNotice&&<p className="cloud-notice" role="status">{cloudNotice}</p>}
       {localImport&&<section className="local-import"><div><span className="eyebrow">BRING YOUR GOOD DAYS WITH YOU</span><h3>นำเข้าข้อมูลเดิมจากอุปกรณ์นี้</h3><p>{localImport.profiles} โปรไฟล์ · {localImport.recipes} สูตร · {localImport.entries} รายการอาหาร · {localImport.weights} บันทึกน้ำหนัก</p><span>นำเข้าโปรไฟล์และเป้าหมายไปยังบัญชีที่ล็อกอินอยู่ โดยเก็บต้นฉบับในอุปกรณ์ไว้</span></div><button className="primary" disabled={importing} onClick={importLocalData}>{importing?'กำลังนำเข้า…':'นำเข้าข้อมูลเดิม'}</button></section>}
       {error&&<div className="alert" role="alert">{error}<button aria-label="Dismiss error" onClick={()=>setError('')}><X size={16}/></button></div>}
@@ -149,7 +147,7 @@ export default function Workspace(props:Props) {
         {entries.length?entries.map(x=><div className="entry" key={x.id}><span className="meal-icon meal-1"><Utensils size={20}/></span><div className="entry-description"><b>{x.name}</b><span>{x.meal}{x.portion_amount ? ` · ${x.portion_amount} ${x.portion_unit === 'grams' ? 'g' : 'เสิร์ฟ'}` : ''} · Protein {x.protein}g / Carbs {x.carbs}g / Fat {x.fat}g</span></div><b>{x.calories} <small>kcal</small></b><button className="icon-button" aria-label={`Delete ${x.name}`} onClick={()=>removeFood(x.id)}><X size={17}/></button></div>):<div className="empty-state"><img src="/illustrations/salad-bowl.svg" alt=""/><h3>Your first bite starts here.</h3><p>ยังไม่มีมื้ออาหารในวันนี้ เพิ่มเมนูที่คุณอร่อยได้เลย</p><button className="primary" onClick={()=>openFood()}><Plus size={17}/> Add your first meal</button></div>}
       </section>}
 
-      {tab==='My recipes'&&<RecipeBuilder recipes={recipes} profiles={profiles} who={who} day={day} onSave={saveRecipe} onLog={logRecipe}/>}
+      {tab==='My recipes'&&<RecipeBuilder startNew={cookbookStart} initialMeal={cookbookStart?food.meal:undefined} recipes={recipes} profiles={profiles} who={who} day={day} onSave={saveRecipe} onLog={logRecipe}/>}
 
       {tab==='Weight log'&&<section className="panel weight-panel"><div className="section-heading"><div><span className="eyebrow">ONE STEP AT A TIME</span><h3>Your weight journal</h3></div><Scale size={27}/></div>
         <form className="weight-form" onSubmit={e=>{e.preventDefault();addWeight()}}><label>Weight (kg)<input required min="1" type="number" step="0.1" placeholder={String(p.weight)} value={weight||''} onChange={e=>setWeight(Number(e.target.value))}/></label><button className="primary"><Plus size={17}/> Log weight</button></form>
@@ -161,13 +159,7 @@ export default function Workspace(props:Props) {
       <footer><Brand/><span>A little care goes a long way.</span><div><span className="sync-dot"/>{cloud?'Connected':'Saved on this device'}{cloud&&<button className="textbutton" onClick={signOut}><LogOut size={13}/> Sign out</button>}</div></footer>
     </main>
 
-    <dialog aria-labelledby="meal-dialog-title" ref={dialog} onClose={()=>setFoodOpen(false)} onClick={e=>{if(e.target===e.currentTarget){const rect=e.currentTarget.getBoundingClientRect();if(e.clientX<rect.left||e.clientX>rect.right||e.clientY<rect.top||e.clientY>rect.bottom)setFoodOpen(false)}}} className="food-dialog">
-      <div className="dialog-header"><div><span className="eyebrow">A LITTLE NOURISHMENT</span><h2 id="meal-dialog-title">Add a meal</h2></div><button className="icon-button" aria-label="Close meal form" onClick={()=>setFoodOpen(false)}><X size={22}/></button></div>
-      <p className="sub">บันทึกมื้ออร่อยของ {p.name} · {dateText}</p><form onSubmit={async e=>{e.preventDefault();if(savingFood)return;setSavingFood(true);try{if(await addFood())setFoodOpen(false)}finally{setSavingFood(false)}}}><div className="formgrid">
-        <label>Food name<input required value={food.name} onChange={e=>setFood({...food,name:e.target.value})} placeholder="วันนี้กินอะไรดี?"/></label><label>Meal<select value={food.meal} onChange={e=>setFood({...food,meal:e.target.value})}>{meals.map(x=><option key={x.name}>{x.name}</option>)}</select></label>
-        {(['calories','protein','carbs','fat'] as const).map(key=><label key={key}>{key} {key==='calories'?'(kcal)':'(g)'}<input type="number" min="0" required value={food[key]} onChange={e=>setFood({...food,[key]:Number(e.target.value)})}/></label>)}
-      </div>{error&&<p className="alert" role="alert">{error}</p>}<button disabled={savingFood} className="primary dialog-submit"><Plus size={17}/> {savingFood?'Saving...':'Add to journal'}</button></form>
-    </dialog>
+    {foodOpen&&<MealDialog recipes={recipes} profiles={profiles} who={who} day={day} food={food} setFood={setFood} error={error} addFood={addFood} onLog={logRecipe} onClose={()=>setFoodOpen(false)} onCreateRecipe={()=>{setFoodOpen(false);setCookbookStart(true);setTab('My recipes')}} onSuccess={message=>{setMealMessage(message);setFoodOpen(false)}}/>}
   </div>;
 }
 
