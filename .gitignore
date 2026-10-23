@@ -1,0 +1,13 @@
+node_modules/
+.next/
+.next-build/
+.vercel/
+.env*
+!.env.example
+*.tsbuildinfo
+.codex/
+.agents/
+.playwright-mcp/
+design-system/*.png
+.DS_Store
+*.log
