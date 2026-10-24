@@ -12,7 +12,7 @@ Personal nutrition journal for New & Ben, with a shared cookbook and separate da
 - Organization: **thossapron29**
 - Region: **Singapore** (`ap-southeast-1`)
 - Dashboard: https://supabase.com/dashboard/project/qkyqiufpluxfgyjhtqzr
-- The full schema in `supabase/schema.sql` has already been applied as the remote `init_daily_fuel` migration. It is a fresh-project bootstrap, not a script to rerun over an existing installation.
+- The database was bootstrapped with remote `init_daily_fuel`, then updated with `add_one_off_meal_ingredients` (`supabase/ingredient-meals.sql`). `supabase/schema.sql` includes both for fresh projects; do not rerun the bootstrap over an existing installation.
 - `.env.local` contains the project URL and public publishable key. It is ignored by Git. No service-role/secret key is used in the browser.
 - Auth Site URL is `https://daily-fuel-inky.vercel.app`. Exact redirect URLs allow the production root (with and without a trailing slash) and `http://localhost:3001` (with and without a trailing slash). Email confirmation remains enabled.
 
@@ -40,7 +40,7 @@ The import includes both profiles and goals, recipes (including ingredient/sourc
 
 - `profiles`: New/Ben body data, calorie goal and macro plan.
 - `recipes`: shared recipes, ingredient nutrition snapshots and cooked yield.
-- `entries`: per-profile/date meals, stored nutrition and recipe portion metadata.
+- `entries`: per-profile/date meals, stored nutrition, recipe portion metadata and one-off ingredient/source snapshots.
 - `weights`: per-profile/date weight history.
 - `import_receipts`: per-account import fingerprints for safe retries.
 
@@ -68,7 +68,9 @@ The cookbook starts with saved recipes and a create button. Creating or editing 
 
 For brands/condiments, enter the label's reference grams and nutrients (e.g. per 15 g). The app normalizes the basis automatically. Saved product-label ingredients become available in later recipes and are marked as manually entered rather than USDA-verified.
 
-Saving a recipe does not count it as eaten. **Add a meal** opens saved recipe selection, then the same portion form used by cookbook cards. Meal shortcuts preserve Breakfast/Lunch/Dinner/Snack. Creating a recipe from this dialog also preserves the intended meal for the follow-up log. Manual calorie/macro entry is a secondary option under the nutrition-info disclosure.
+Saving a recipe does not count it as eaten. **Add a meal** offers direct ingredient entry or a saved recipe. Saved recipes use the same portion form as cookbook cards. Meal shortcuts preserve Breakfast/Lunch/Dinner/Snack. Creating a recipe from this dialog also preserves the intended meal for the follow-up log. Manual calorie/macro entry is a secondary option under the nutrition-info disclosure.
+
+For a one-off meal, choose **เลือกวัตถุดิบสำหรับมื้อนี้**, select who is eating, and enter ingredient grams actually eaten by that person. Raw/cooked selection, product labels and nutrition calculation work like the cookbook, but there is no serving denominator or recipe record. The current date/meal are prefilled; name and date adjustments are optional. Blank names use ingredient names automatically. Food diary retains ingredient grams, preparation states and source snapshots after reload. Label ingredients from these meals can be reused in later meals or recipes. Dashboard uses the stored meal nutrition for the selected person/date.
 
 Save servings and optionally measured cooked yield. Gram portions require cooked yield; it is never inferred from raw ingredient weights. Select the people eating and enter a positive amount for each. New and Ben can log different amounts, including fractional servings, in one operation. Unchecked people receive no entry; the whole recipe need not be consumed. This is portion logging, not batch inventory management. The estimate assumes evenly mixed food; drained liquids, discarded oil and uneven servings can affect it.
 
@@ -83,7 +85,9 @@ npm test
 npx tsc --noEmit
 ```
 
-`supabase/verify.sql` uses a transaction with disposable reserved test identities and rolls everything back. It verifies CRUD, import retries, atomic rollback, profile mapping, immutable diary snapshots and account isolation. It has been executed successfully against this project. Anonymous REST reads were checked and rejected with 401. The Supabase security advisor returned no findings.
+`supabase/verify.sql` uses a transaction with disposable reserved test identities and rolls everything back. It verifies CRUD, import retries, atomic rollback, profile mapping, immutable diary snapshots and account isolation. It has been executed successfully against this project. Anonymous REST reads were checked and rejected with 401. The latest Supabase security advisory flags disabled [Leaked Password Protection](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection); database RLS remains enabled and ownership-based.
+
+`supabase/verify-ingredient-meals.sql` additionally verifies ingredient snapshot import/read, no implicit recipe creation, import retry safety, legacy entry defaults, JSON-array validation and cross-account read isolation. It passed remotely with all fixture records rolled back. The 25 Node tests cover direct-gram totals, rounding, label scaling, independent snapshots and invalid input rejection. Local browser checks use the actual Home/Workspace in a separate origin without Supabase configuration, and cover saving, refreshing, diary details, no recipe creation, profile/date selection and mobile layout.
 
 Browser tests cover sign-in-session loading, cloud error/retry, local import success/failure, backup retention and sign-out using mocked Auth/REST responses. No email or password belonging to the user is used in automated tests, and no real verification email is sent by tests.
 

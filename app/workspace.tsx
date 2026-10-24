@@ -7,7 +7,7 @@ import {goalOption, isCustomGoal, macroOption, macroTargets} from '../lib/nutrit
 import NutritionSettings from './nutrition-settings';
 import RecipeBuilder from './recipe-builder';
 import MealDialog from './meal-dialog';
-import type {RecipeDraft, RecipeLog} from '../lib/recipes';
+import {stateLabels, type Food, type IngredientMealDraft, type RecipeDraft, type RecipeLog} from '../lib/recipes';
 
 type FoodDraft = {name:string; meal:string; calories:number; protein:number; carbs:number; fat:number};
 type Weight = {id:string;profile_id:string;date:string;weight:number};
@@ -22,7 +22,7 @@ type Props = {
   entries:Entry[]; recipes:Recipe[]; weights:Weight[];
   food:FoodDraft; setFood:Setter<FoodDraft>;
   weight:number; setWeight:Setter<number>;
-  addFood:()=>Promise<boolean>; removeFood:(id:string)=>Promise<void>; saveRecipe:(draft:RecipeDraft)=>Promise<Recipe|null>; logRecipe:(recipe:Recipe,log:RecipeLog)=>Promise<boolean>;
+  addIngredientMeal:(draft:IngredientMealDraft)=>Promise<boolean>; ingredientFoods:Food[]; addFood:()=>Promise<boolean>; removeFood:(id:string)=>Promise<void>; saveRecipe:(draft:RecipeDraft)=>Promise<Recipe|null>; logRecipe:(recipe:Recipe,log:RecipeLog)=>Promise<boolean>;
   saveProfile:(profile:Profile)=>Promise<boolean>; addWeight:()=>Promise<void>;
 };
 
@@ -40,7 +40,7 @@ const meals = [
 export default function Workspace(props:Props) {
   const {account, cloud, email, password, error, setEmail, setPassword, setError, auth, authPending, authMessage, signOut, localImport, importing, importLocalData, cloudNotice,
     profiles, who, setWho, tab, setTab, day, setDay, entries, recipes, weights,
-    food, setFood, weight, setWeight, addFood, removeFood, saveRecipe, logRecipe, saveProfile, addWeight} = props;
+    food, setFood, weight, setWeight, addFood, addIngredientMeal, ingredientFoods, removeFood, saveRecipe, logRecipe, saveProfile, addWeight} = props;
   const [foodOpen, setFoodOpen] = useState(false);
   const [cookbookStart,setCookbookStart]=useState(false);
   const [mealMessage,setMealMessage]=useState('');
@@ -144,10 +144,10 @@ export default function Workspace(props:Props) {
       </>}
 
       {tab==='Food diary'&&<section className="panel"><div className="section-heading"><div><span className="eyebrow">YOUR FOOD JOURNAL</span><h3>A day of nourishment</h3></div><span className="total-badge">{eaten.toLocaleString()} kcal</span></div>
-        {entries.length?entries.map(x=><div className="entry" key={x.id}><span className="meal-icon meal-1"><Utensils size={20}/></span><div className="entry-description"><b>{x.name}</b><span>{x.meal}{x.portion_amount ? ` · ${x.portion_amount} ${x.portion_unit === 'grams' ? 'g' : 'เสิร์ฟ'}` : ''} · Protein {x.protein}g / Carbs {x.carbs}g / Fat {x.fat}g</span></div><b>{x.calories} <small>kcal</small></b><button className="icon-button" aria-label={`Delete ${x.name}`} onClick={()=>removeFood(x.id)}><X size={17}/></button></div>):<div className="empty-state"><img src="/illustrations/salad-bowl.svg" alt=""/><h3>Your first bite starts here.</h3><p>ยังไม่มีมื้ออาหารในวันนี้ เพิ่มเมนูที่คุณอร่อยได้เลย</p><button className="primary" onClick={()=>openFood()}><Plus size={17}/> Add your first meal</button></div>}
+        {entries.length?entries.map(x=><div className="entry" key={x.id}><span className="meal-icon meal-1"><Utensils size={20}/></span><div className="entry-description"><b>{x.name}</b><span>{x.meal}{x.portion_amount ? ` · ${x.portion_amount} ${x.portion_unit === 'grams' ? 'g' : 'เสิร์ฟ'}` : ''} · Protein {x.protein}g / Carbs {x.carbs}g / Fat {x.fat}g</span>{!!x.ingredient_items?.length&&<details className="entry-ingredients"><summary>วัตถุดิบ ({x.ingredient_items.length})</summary><ul>{x.ingredient_items.map(item=><li key={item.id}>{item.food.name} ({stateLabels[item.food.state]}) <b>{item.grams} g</b></li>)}</ul></details>}</div><b>{x.calories} <small>kcal</small></b><button className="icon-button" aria-label={`Delete ${x.name}`} onClick={()=>removeFood(x.id)}><X size={17}/></button></div>):<div className="empty-state"><img src="/illustrations/salad-bowl.svg" alt=""/><h3>Your first bite starts here.</h3><p>ยังไม่มีมื้ออาหารในวันนี้ เพิ่มเมนูที่คุณอร่อยได้เลย</p><button className="primary" onClick={()=>openFood()}><Plus size={17}/> Add your first meal</button></div>}
       </section>}
 
-      {tab==='My recipes'&&<RecipeBuilder startNew={cookbookStart} initialMeal={cookbookStart?food.meal:undefined} recipes={recipes} profiles={profiles} who={who} day={day} onSave={saveRecipe} onLog={logRecipe}/>}
+      {tab==='My recipes'&&<RecipeBuilder extraFoods={ingredientFoods} startNew={cookbookStart} initialMeal={cookbookStart?food.meal:undefined} recipes={recipes} profiles={profiles} who={who} day={day} onSave={saveRecipe} onLog={logRecipe}/>}
 
       {tab==='Weight log'&&<section className="panel weight-panel"><div className="section-heading"><div><span className="eyebrow">ONE STEP AT A TIME</span><h3>Your weight journal</h3></div><Scale size={27}/></div>
         <form className="weight-form" onSubmit={e=>{e.preventDefault();addWeight()}}><label>Weight (kg)<input required min="1" type="number" step="0.1" placeholder={String(p.weight)} value={weight||''} onChange={e=>setWeight(Number(e.target.value))}/></label><button className="primary"><Plus size={17}/> Log weight</button></form>
@@ -159,7 +159,7 @@ export default function Workspace(props:Props) {
       <footer><Brand/><span>A little care goes a long way.</span><div><span className="sync-dot"/>{cloud?'Connected':'Saved on this device'}{cloud&&<button className="textbutton" onClick={signOut}><LogOut size={13}/> Sign out</button>}</div></footer>
     </main>
 
-    {foodOpen&&<MealDialog recipes={recipes} profiles={profiles} who={who} day={day} food={food} setFood={setFood} error={error} addFood={addFood} onLog={logRecipe} onClose={()=>setFoodOpen(false)} onCreateRecipe={()=>{setFoodOpen(false);setCookbookStart(true);setTab('My recipes')}} onSuccess={message=>{setMealMessage(message);setFoodOpen(false)}}/>}
+    {foodOpen&&<MealDialog recipes={recipes} profiles={profiles} who={who} day={day} food={food} setFood={setFood} error={error} addFood={addFood} onIngredientMeal={addIngredientMeal} extraFoods={ingredientFoods} onLog={logRecipe} onClose={()=>setFoodOpen(false)} onCreateRecipe={()=>{setFoodOpen(false);setCookbookStart(true);setTab('My recipes')}} onSuccess={message=>{setMealMessage(message);setFoodOpen(false)}}/>}
   </div>;
 }
 

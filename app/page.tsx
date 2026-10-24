@@ -4,7 +4,7 @@ import Workspace from './workspace';
 import {defaultProfiles,Profile,Entry,Recipe,today,uid,getSupabase} from '../lib/data';
 import {validateNutritionProfile} from '../lib/nutrition';
 import {parseLocalBackup, type LocalBackup} from '../lib/local-backup';
-import {buildRecipe, portionNutrition, validateRecipeLog, type RecipeDraft, type RecipeLog} from '../lib/recipes';
+import {buildIngredientMeal, type IngredientMealDraft, buildRecipe, portionNutrition, validateRecipeLog, type RecipeDraft, type RecipeLog} from '../lib/recipes';
 const db=getSupabase();
 const messageOf=(error:unknown,fallback:string)=>error&&typeof error==='object'&&'message' in error&&typeof error.message==='string'?error.message:fallback;
 export default function Home(){
@@ -82,6 +82,18 @@ export default function Home(){
    }
    const a=[...entries,x];save(profiles,a);setEntries(a);setFood({name:'',meal:'Lunch',calories:0,protein:0,carbs:0,fat:0});return true;
   }catch(error){setError(messageOf(error,'บันทึกมื้ออาหารไม่สำเร็จ'));return false}
+ }
+ async function addIngredientMeal(draft:IngredientMealDraft):Promise<boolean>{
+  setError('');
+  try{
+   const entry=buildIngredientMeal(draft,uid(),profiles.map(profile=>profile.id));
+   if(db){
+    if(!account)throw new Error('กรุณาเข้าสู่ระบบก่อนบันทึกมื้ออาหาร');
+    const {error}=await db.from('entries').insert({...entry,owner_id:account,profile_id:dbid(entry.profile_id)}).select('id').single();
+    if(error)throw error;
+   }
+   const next=[...entries,entry];save(profiles,next);setEntries(next);setWho(entry.profile_id);setDay(entry.date);return true;
+  }catch(error){setError(messageOf(error,'บันทึกมื้ออาหารไม่สำเร็จ กรุณาลองอีกครั้ง'));return false}
  }
  async function removeFood(id:string){
   setError('');
@@ -172,5 +184,5 @@ export default function Home(){
  }
 
 
- return <Workspace account={account} cloud={!!db} email={email} password={password} error={error} setEmail={setEmail} setPassword={setPassword} setError={setError} auth={auth} authPending={authPending} authMessage={authMessage} signOut={signOut} localImport={localBackup?{profiles:localBackup.profiles.length,recipes:localBackup.recipes.length,entries:localBackup.entries.length,weights:localBackup.weights.length}:null} importing={importing} importLocalData={importLocalData} cloudNotice={cloudNotice} profiles={profiles} who={who} setWho={setWho} tab={tab} setTab={setTab} day={day} setDay={setDay} entries={list} recipes={recipes} weights={weights} food={food} setFood={setFood} weight={weight} setWeight={setWeight} addFood={addFood} removeFood={removeFood} saveRecipe={saveRecipe} logRecipe={logRecipe} saveProfile={saveProfile} addWeight={addWeight}/>
+ return <Workspace account={account} cloud={!!db} email={email} password={password} error={error} setEmail={setEmail} setPassword={setPassword} setError={setError} auth={auth} authPending={authPending} authMessage={authMessage} signOut={signOut} localImport={localBackup?{profiles:localBackup.profiles.length,recipes:localBackup.recipes.length,entries:localBackup.entries.length,weights:localBackup.weights.length}:null} importing={importing} importLocalData={importLocalData} cloudNotice={cloudNotice} profiles={profiles} who={who} setWho={setWho} tab={tab} setTab={setTab} day={day} setDay={setDay} entries={list} recipes={recipes} weights={weights} food={food} setFood={setFood} weight={weight} setWeight={setWeight} addFood={addFood} addIngredientMeal={addIngredientMeal} ingredientFoods={entries.flatMap(entry=>(entry.ingredient_items||[]).map(item=>item.food))} removeFood={removeFood} saveRecipe={saveRecipe} logRecipe={logRecipe} saveProfile={saveProfile} addWeight={addWeight}/>
 }

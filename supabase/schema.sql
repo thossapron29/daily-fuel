@@ -26,6 +26,7 @@ create table public.entries (
  meal text not null check(meal in ('Breakfast','Lunch','Dinner','Snack')), name text not null,
  calories numeric not null check(calories>=0),protein numeric not null default 0 check(protein>=0),
  carbs numeric not null default 0 check(carbs>=0),fat numeric not null default 0 check(fat>=0),
+ ingredient_items jsonb not null default '[]'::jsonb check(jsonb_typeof(ingredient_items)='array'),
  recipe_id uuid,portion_amount numeric check(portion_amount>0),portion_unit text check(portion_unit in ('grams','servings')),
  check((portion_amount is null)=(portion_unit is null)),
  foreign key(profile_id,owner_id) references public.profiles(id,owner_id) on delete cascade,
@@ -110,10 +111,10 @@ begin
  for item in select value from jsonb_array_elements(payload->'entries') loop
   select id into mapped_profile from public.profiles where owner_id=household and slot=item->>'profile_id';
   if mapped_profile is null then raise exception 'Unknown profile in diary'; end if;
-  insert into public.entries(id,owner_id,profile_id,date,meal,name,calories,protein,carbs,fat,recipe_id,portion_amount,portion_unit)
+  insert into public.entries(id,owner_id,profile_id,date,meal,name,calories,protein,carbs,fat,recipe_id,portion_amount,portion_unit,ingredient_items)
   values((item->>'id')::uuid,household,mapped_profile,(item->>'date')::date,item->>'meal',item->>'name',
    (item->>'calories')::numeric,(item->>'protein')::numeric,(item->>'carbs')::numeric,(item->>'fat')::numeric,
-   (item->>'recipe_id')::uuid,(item->>'portion_amount')::numeric,item->>'portion_unit');
+   (item->>'recipe_id')::uuid,(item->>'portion_amount')::numeric,item->>'portion_unit',coalesce(item->'ingredient_items','[]'::jsonb));
   entry_count:=entry_count+1;
  end loop;
  for item in select value from jsonb_array_elements(payload->'weights') loop

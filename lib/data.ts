@@ -1,8 +1,9 @@
 import {createClient, SupabaseClient} from '@supabase/supabase-js';
 import type {Profile} from './nutrition';
+import type {RecipeIngredient} from './recipes';
 export type {Profile} from './nutrition';
 export {bmr, tdee, target} from './nutrition';
-export type Entry={id:string;profile_id:string;date:string;meal:string;name:string;calories:number;protein:number;carbs:number;fat:number;recipe_id?:string;portion_amount?:number;portion_unit?:'grams'|'servings'};
+export type Entry={id:string;profile_id:string;date:string;meal:string;name:string;calories:number;protein:number;carbs:number;fat:number;recipe_id?:string;portion_amount?:number;portion_unit?:'grams'|'servings';ingredient_items?:RecipeIngredient[]};
 export type {Recipe} from './recipes';
 // Public example values only. Existing accounts keep their saved Supabase data.
 export const defaultProfiles:Profile[]=[{id:'new',name:'นิว',sex:'female',age:30,weight:60,height:165,activity:1.2,body_fat:null,goal:'lose',adjustment:-300,macro_plan:'moderate'},{id:'ben',name:'เบ้น',sex:'male',age:30,weight:70,height:175,activity:1.375,body_fat:null,goal:'maintain',adjustment:0,macro_plan:'moderate'}];

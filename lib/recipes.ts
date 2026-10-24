@@ -6,6 +6,7 @@ export type Recipe = Nutrients & {id: string; name: string; servings: number; in
 export type RecipeDraft = {id?: string; name: string; servings: number; yield_grams: number | null; ingredient_items: RecipeIngredient[]};
 export type PortionUnit = 'grams' | 'servings';
 export type RecipeLog = {date: string; meal: string; unit: PortionUnit; portions: {profile_id: string; amount: number}[]};
+export type IngredientMealDraft = {name: string; profile_id: string; date: string; meal: string; ingredient_items: RecipeIngredient[]};
 export const nutrientKeys = ['calories', 'protein', 'carbs', 'fat'] as const;
 export const stateLabels: Record<FoodState, string> = {raw: 'ดิบ', cooked: 'สุก', as_sold: 'ตามฉลาก / พร้อมใช้'};
 export const emptyRecipe = (): RecipeDraft => ({name: '', servings: 2, yield_grams: null, ingredient_items: []});
@@ -34,6 +35,19 @@ export function recipeNutrition(items: RecipeIngredient[]): Nutrients {
   }
   if (!validNutrients(total)) throw new Error('ผลรวมสารอาหารไม่ถูกต้อง');
   return total;
+}
+
+// A one-off meal uses grams actually eaten, without a recipe or serving denominator.
+export function buildIngredientMeal(draft: IngredientMealDraft, id: string, profileIds: string[]) {
+  validateRecipeLog({date:draft.date,meal:draft.meal,unit:'servings',portions:[{profile_id:draft.profile_id,amount:1}]},profileIds);
+  if (!draft.ingredient_items.length) throw new Error('เพิ่มวัตถุดิบอย่างน้อย 1 รายการ');
+  if (draft.ingredient_items.some(item=>!item.food.name.trim())) throw new Error('กรุณาระบุชื่อวัตถุดิบ');
+  const values=recipeNutrition(draft.ingredient_items);
+  const totals=Object.fromEntries(nutrientKeys.map(key=>[key,roundNutrition(values[key])])) as Nutrients;
+  if (!validNutrients(totals)) throw new Error('ผลรวมสารอาหารมากเกินไป');
+  return {id,profile_id:draft.profile_id,date:draft.date,meal:draft.meal,
+    name:draft.name.trim() || draft.ingredient_items.map(item=>item.food.name).join(' + '),
+    ingredient_items:draft.ingredient_items.map(item=>({...item,food:{...item.food}})),...totals};
 }
 export function buildRecipe(draft: RecipeDraft, id: string): Recipe {
   if (!draft.name.trim()) throw new Error('กรุณาตั้งชื่อสูตร');
