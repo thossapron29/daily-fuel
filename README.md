@@ -12,7 +12,7 @@ Personal nutrition journal for New & Ben, with a shared cookbook and separate da
 - Organization: **thossapron29**
 - Region: **Singapore** (`ap-southeast-1`)
 - Dashboard: https://supabase.com/dashboard/project/qkyqiufpluxfgyjhtqzr
-- The database was bootstrapped with remote `init_daily_fuel`, then updated with `add_one_off_meal_ingredients` (`supabase/ingredient-meals.sql`) and `add_shared_pantry` (`supabase/pantry.sql`). `supabase/schema.sql` includes all updates for fresh projects; do not rerun the bootstrap over an existing installation.
+- The database was bootstrapped with remote `init_daily_fuel`, then updated with `add_one_off_meal_ingredients` (`supabase/ingredient-meals.sql`) and `add_shared_pantry` (`supabase/pantry.sql`), followed by `add_pending_pantry_nutrition` (`supabase/pending-pantry.sql`). `supabase/schema.sql` includes all updates for fresh projects; do not rerun the bootstrap over an existing installation.
 - `.env.local` contains the project URL and public publishable key. It is ignored by Git. No service-role/secret key is used in the browser.
 - Auth Site URL is `https://daily-fuel-inky.vercel.app`. Exact redirect URLs allow the production root (with and without a trailing slash) and `http://localhost:3001` (with and without a trailing slash). Email confirmation remains enabled.
 
@@ -109,6 +109,9 @@ The parser chooses one `as_sold` packaging nutrition set with an explicit quanti
 Open Food Facts is community-provided data under [ODbL](https://openfoodfacts.github.io/openfoodfacts-server/api/). Imported records retain attribution and their product link. Data coverage/completeness varies; manual label entry remains available on failures or missing fields. No product data is uploaded back to Open Food Facts.
 
 `supabase/verify-pantry.sql` passed remotely with all fixtures rolled back: pantry import/read, ownership assignment, barcode uniqueness, archive/restore, preserved meal snapshots and cross-account RLS. The automated tests also cover native units, legacy compatibility, barcode parsing, production authentication, missing data, upstream failures and rate limits. Browser checks used the actual Home/Workspace at an isolated local origin, including a real read-only barcode lookup, independent pantry save, shared profile use, mixed g/ml meal logging, reload persistence and mobile layout.
+
+
+Products added administratively without verified nutrition can be retained with `needs_nutrition=true` and nullable nutrient fields. Cards display dashes, editing starts with blank unknown fields, and these products are excluded from recipe/meal selection until all values are filled and reviewed. Ready products are guarded by a database constraint requiring all four nutrients. Unknown is never interpreted as zero. `supabase/verify-pending-pantry.sql` verifies pending import, NULL preservation, ready-state validation, completion and owner isolation with rolled-back fixtures. The product's net package mass is not used to infer its nutrition.
 
 ## Deployment
 

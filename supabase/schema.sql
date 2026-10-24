@@ -28,11 +28,13 @@ create table public.pantry_items (
  state text not null check(state in ('raw','cooked','as_sold')),
  basis_unit text not null default 'g' check(basis_unit in ('g','ml')),
  label_basis numeric not null default 100 check(label_basis>0 and label_basis<'Infinity'::numeric),
- calories numeric not null check(calories>=0 and calories<'Infinity'::numeric),
- protein numeric not null check(protein>=0 and protein<'Infinity'::numeric),
- carbs numeric not null check(carbs>=0 and carbs<'Infinity'::numeric),
- fat numeric not null check(fat>=0 and fat<'Infinity'::numeric),
+ calories numeric check(calories>=0 and calories<'Infinity'::numeric),
+ protein numeric check(protein>=0 and protein<'Infinity'::numeric),
+ carbs numeric check(carbs>=0 and carbs<'Infinity'::numeric),
+ fat numeric check(fat>=0 and fat<'Infinity'::numeric),
  description text not null default '',source text not null,source_url text,source_id text,
+ needs_nutrition boolean not null default false,
+ check(needs_nutrition or (calories is not null and protein is not null and carbs is not null and fat is not null)),
  archived boolean not null default false,created_at timestamptz not null default now(),
  unique(owner_id,barcode)
 );
@@ -126,9 +128,9 @@ begin
   profile_count:=profile_count+1;
  end loop;
  for item in select value from jsonb_array_elements(coalesce(payload->'pantry','[]'::jsonb)) loop
-  insert into public.pantry_items(id,owner_id,name,brand,barcode,category,state,basis_unit,label_basis,calories,protein,carbs,fat,description,source,source_url,source_id,archived)
+  insert into public.pantry_items(id,owner_id,name,brand,barcode,category,state,basis_unit,label_basis,calories,protein,carbs,fat,description,source,source_url,source_id,archived,needs_nutrition)
   values((item->>'id')::uuid,household,item->>'name',coalesce(item->>'brand',''),nullif(item->>'barcode',''),coalesce(item->>'category','other'),item->>'state',coalesce(item->>'basis_unit','g'),coalesce((item->>'label_basis')::numeric,100),
-   (item->>'calories')::numeric,(item->>'protein')::numeric,(item->>'carbs')::numeric,(item->>'fat')::numeric,coalesce(item->>'description',''),coalesce(item->>'source','Imported label'),item->>'source_url',item->>'source_id',coalesce((item->>'archived')::boolean,false));
+   (item->>'calories')::numeric,(item->>'protein')::numeric,(item->>'carbs')::numeric,(item->>'fat')::numeric,coalesce(item->>'description',''),coalesce(item->>'source','Imported label'),item->>'source_url',item->>'source_id',coalesce((item->>'archived')::boolean,false),coalesce((item->>'needs_nutrition')::boolean,false));
   pantry_count:=pantry_count+1;
  end loop;
  for item in select value from jsonb_array_elements(payload->'recipes') loop

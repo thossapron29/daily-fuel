@@ -9,7 +9,7 @@ function categoryForGroup(group:string):FoodCategory {
  if(/^(olive-oil|soybean-oil|salt|sugar|fish-sauce|oyster-sauce|soy-sauce|black-pepper|coconut-milk)/.test(group))return 'seasoning';
  return 'other';
 }
-export function categoryForFood(food:Food):FoodCategory{return food.category||categoryForGroup(food.group)}
+export function categoryForFood(food:Pick<Food,'category'|'group'>):FoodCategory{return food.category||categoryForGroup(food.group)}
 
 // USDA FoodData Central / SR Legacy. Values per 100 g, verified from the
 // official Food Details API on 2026-10-23/24. Energy is the source's kcal field.

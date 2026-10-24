@@ -6,7 +6,7 @@ const encode=source=>`data:text/javascript;base64,${Buffer.from(source).toString
 const compile=async path=>ts.transpileModule(await readFile(new URL(path,import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText;
 const recipesURL=encode(await compile('../lib/recipes.ts'));
 const pantryURL=encode((await compile('../lib/pantry.ts')).replace("'./recipes'",JSON.stringify(recipesURL)));
-const {normalizeBarcode,buildPantryItem,pantryToRow,pantryFromRow,draftFromFood,parseBarcodeProduct}=await import(pantryURL);
+const {normalizeBarcode,buildPantryItem,pantryToRow,pantryFromRow,draftFromFood,parseBarcodeProduct,hasNutrition}=await import(pantryURL);
 const {ingredientNutrition,buildRecipe,buildIngredientMeal}=await import(recipesURL);
 const code='8850038400080';
 const close=(a,b)=>assert.ok(Math.abs(a-b)<1e-8,`${a} != ${b}`);
@@ -35,6 +35,18 @@ test('meals and recipes snapshot ml ingredients independently of later pantry ed
  const meal=buildIngredientMeal({name:'',profile_id:'new',date:'2026-10-24',meal:'Lunch',ingredient_items:items},'meal',['new']);
  const recipe=buildRecipe({name:'Shared',servings:2,yield_grams:null,ingredient_items:items},'recipe');
  food.calories=1000;assert.equal(meal.calories,20);close(recipe.calories,20);assert.match(recipe.ingredients,/30 ml/);assert.equal(meal.ingredient_items[0].unit,'ml');
+});
+test('pending pantry nutrients remain null, cannot calculate, and can be completed with real data',()=>{
+ const complete=buildPantryItem(draft,'pending-1');
+ const row={...pantryToRow(complete),needs_nutrition:true,calories:null,protein:null,carbs:null,fat:null};
+ const pending=pantryFromRow(row);
+ assert.equal(pending.calories,null);assert.equal(hasNutrition(pending),false);
+ assert.equal(draftFromFood(pending).calories,null);
+ assert.equal(JSON.parse(JSON.stringify(pending)).protein,null);
+ assert.throws(()=>ingredientNutrition({id:'row',food:pending,grams:15,unit:'ml'}));
+ assert.equal(hasNutrition({...complete,needs_nutrition:true}),false);
+ assert.equal(hasNutrition(complete),true);
+ assert.equal(buildPantryItem({...draft,id:pending.id},pending.id).needs_nutrition,false);
 });
 test('v3.6 barcode parser selects one packaging dataset without mixing g/ml or estimated nutrients',()=>{
  const payload={product:{code,product_name:'Sauce',brands:'Brand',nutrition_data_per:'100g',nutrition:{input_sets:[

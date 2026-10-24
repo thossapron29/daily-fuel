@@ -1,9 +1,14 @@
 import {foodFromLabel, validNutrients, type Food, type FoodState, type FoodUnit, type FoodCategory, type Nutrients} from './recipes';
 
 export const categoryLabels:Record<FoodCategory,string>={protein:'เนื้อสัตว์ / โปรตีน',carb:'ข้าว / เส้น / แป้ง',vegetable:'ผัก / สมุนไพร',seasoning:'เครื่องปรุง',other:'อื่น ๆ'};
-export type PantryItem=Food&{archived:boolean};
+type NullableNutrients={[Key in keyof Nutrients]:number|null};
+export type PantryItem=Omit<Food,keyof Nutrients>&NullableNutrients&{archived:boolean;needs_nutrition:boolean};
+export type ReadyPantryItem=PantryItem&Food;
 export type PantryDraft=Nutrients&{id?:string;name:string;brand:string;barcode:string;category:FoodCategory;state:FoodState;basis:number;basis_unit:FoodUnit;source:string;source_url?:string;source_id?:string};
 export type BarcodeCandidate={name:string;brand:string;barcode:string;basis:number|null;basis_unit:FoodUnit|null;values:Record<keyof Nutrients,number|null>;source:string;source_url:string;source_id:string};
+export function hasNutrition(food:Food|PantryItem):food is Food {
+  return !('needs_nutrition' in food&&food.needs_nutrition)&&(['calories','protein','carbs','fat'] as const).every(key=>{const value=food[key];return typeof value==='number'&&Number.isFinite(value)&&value>=0});
+}
 
 export function normalizeBarcode(input:string):string {
   const code=input.replace(/[\s-]/g,'');
@@ -12,26 +17,27 @@ export function normalizeBarcode(input:string):string {
   if((10-sum%10)%10!==Number(code.at(-1)))throw new Error('เลขตรวจสอบบาร์โค้ดไม่ตรง ลองตรวจตัวเลขอีกครั้ง');
   return code.length===12?`0${code}`:code.length===14&&code.startsWith('0')?code.slice(1):code;
 }
-export function buildPantryItem(draft:PantryDraft,id:string):PantryItem {
+export function buildPantryItem(draft:PantryDraft,id:string):ReadyPantryItem {
   if(!Object.hasOwn(categoryLabels,draft.category))throw new Error('เลือกหมวดวัตถุดิบ');
   const food=foodFromLabel(draft,id);
   return {...food,brand:draft.brand.trim(),barcode:draft.barcode.trim()?normalizeBarcode(draft.barcode):undefined,category:draft.category,
-    source:draft.source.trim()||'ฉลากสินค้า / กรอกเอง',source_url:draft.source_url,source_id:draft.source_id,archived:false};
+    source:draft.source.trim()||'ฉลากสินค้า / กรอกเอง',source_url:draft.source_url,source_id:draft.source_id,archived:false,needs_nutrition:false};
 }
-export function pantryToRow(item:PantryItem) {
+type PantryRow=Omit<PantryItem,'group'|'aliases'|'brand'|'barcode'|'category'|'basis_unit'|'label_basis'|'source_url'|'source_id'>&{brand:string;barcode:string|null;category:FoodCategory;basis_unit:FoodUnit;label_basis:number;source_url:string|null;source_id:string|null};
+export function pantryToRow(item:ReadyPantryItem):PantryRow {
   if(!validNutrients(item))throw new Error('ตรวจสอบสารอาหาร');
   return {id:item.id,name:item.name,brand:item.brand||'',barcode:item.barcode||null,category:item.category||'other',state:item.state,basis_unit:item.basis_unit||'g',label_basis:item.label_basis||100,
-    calories:item.calories,protein:item.protein,carbs:item.carbs,fat:item.fat,description:item.description,source:item.source,source_url:item.source_url||null,source_id:item.source_id||null,archived:item.archived};
+    calories:item.calories,protein:item.protein,carbs:item.carbs,fat:item.fat,description:item.description,source:item.source,source_url:item.source_url||null,source_id:item.source_id||null,archived:item.archived,needs_nutrition:false};
 }
-export function pantryFromRow(row:ReturnType<typeof pantryToRow>):PantryItem {
+export function pantryFromRow(row:PantryRow):PantryItem {
   return {id:row.id,group:row.id,name:row.name,brand:row.brand,barcode:row.barcode||undefined,category:row.category as FoodCategory,state:row.state,
-    basis_unit:row.basis_unit as FoodUnit,label_basis:Number(row.label_basis),calories:Number(row.calories),protein:Number(row.protein),carbs:Number(row.carbs),fat:Number(row.fat),
-    description:row.description,source:row.source,source_url:row.source_url||undefined,source_id:row.source_id||undefined,archived:row.archived};
+    basis_unit:row.basis_unit as FoodUnit,label_basis:Number(row.label_basis),calories:row.calories==null?null:Number(row.calories),protein:row.protein==null?null:Number(row.protein),carbs:row.carbs==null?null:Number(row.carbs),fat:row.fat==null?null:Number(row.fat),
+    description:row.description,source:row.source,source_url:row.source_url||undefined,source_id:row.source_id||undefined,archived:row.archived,needs_nutrition:row.needs_nutrition||row.calories==null||row.protein==null||row.carbs==null||row.fat==null};
 }
-export function draftFromFood(food:Food):PantryDraft {
+export function draftFromFood(food:Food|PantryItem):Omit<PantryDraft,keyof Nutrients>&NullableNutrients {
   const basis=food.label_basis||100;
   return {id:food.id,name:food.name,brand:food.brand||'',barcode:food.barcode||'',category:food.category||'other',state:food.state,basis,basis_unit:food.basis_unit||'g',
-    calories:food.calories*basis/100,protein:food.protein*basis/100,carbs:food.carbs*basis/100,fat:food.fat*basis/100,source:food.source,source_url:food.source_url,source_id:food.source_id};
+    calories:food.calories==null?null:food.calories*basis/100,protein:food.protein==null?null:food.protein*basis/100,carbs:food.carbs==null?null:food.carbs*basis/100,fat:food.fat==null?null:food.fat*basis/100,source:'needs_nutrition' in food&&food.needs_nutrition?'ฉลากสินค้า / ผู้ใช้เติมข้อมูล':food.source,source_url:food.source_url,source_id:food.source_id};
 }
 // Never fill an absent nutrient with zero or assume a liquid's density.
 export function parseBarcodeProduct(payload:unknown,requested:string):BarcodeCandidate {

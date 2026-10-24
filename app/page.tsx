@@ -2,7 +2,7 @@
 import {useEffect,useState} from 'react';
 import Workspace from './workspace';
 import {PantryContext} from './pantry-context';
-import {buildPantryItem,pantryToRow,pantryFromRow,normalizeBarcode,type PantryItem,type PantryDraft,type BarcodeCandidate} from '../lib/pantry';
+import {buildPantryItem,pantryToRow,pantryFromRow,normalizeBarcode,type PantryItem,type ReadyPantryItem,type PantryDraft,type BarcodeCandidate} from '../lib/pantry';
 import {defaultProfiles,Profile,Entry,Recipe,today,uid,getSupabase} from '../lib/data';
 import {validateNutritionProfile} from '../lib/nutrition';
 import {parseLocalBackup, type LocalBackup} from '../lib/local-backup';
@@ -57,7 +57,7 @@ export default function Home(){
   })();
   return()=>{cancelled=true};
  },[account,reloadVersion]);
- async function savePantry(draft:PantryDraft):Promise<PantryItem>{
+ async function savePantry(draft:PantryDraft):Promise<ReadyPantryItem>{
   const item=buildPantryItem(draft,draft.id||uid());
   if(draft.id&&!pantry.some(food=>food.id===draft.id))throw new Error('ไม่พบรายการเดิม กรุณาเปิดตู้ใหม่');
   if(item.barcode&&pantry.some(food=>food.id!==item.id&&food.barcode===item.barcode))throw new Error('มีบาร์โค้ดนี้ในตู้แล้ว ให้เปิดแก้ไขหรือนำรายการเดิมกลับเข้าตู้');
