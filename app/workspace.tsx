@@ -1,12 +1,13 @@
 'use client';
 
 import {useState, type Dispatch, type SetStateAction} from 'react';
-import {ArrowUpRight, ArrowRight, Plus, X, Sun, LayoutDashboard, Utensils, BookOpen, Scale, Settings, ChevronLeft, ChevronRight, CalendarDays, Flame, Leaf, Heart, Check, LogOut} from 'lucide-react';
+import {ArrowUpRight, ArrowRight, Plus, X, Sun, LayoutDashboard, Utensils, BookOpen, Scale, Settings, ChevronLeft, ChevronRight, CalendarDays, Flame, Leaf, Heart, Check, LogOut, Package} from 'lucide-react';
 import {type Profile, type Entry, type Recipe, target, tdee, bmr, today} from '../lib/data';
 import {goalOption, isCustomGoal, macroOption, macroTargets} from '../lib/nutrition';
 import NutritionSettings from './nutrition-settings';
 import RecipeBuilder from './recipe-builder';
 import MealDialog from './meal-dialog';
+import Pantry from './pantry';
 import {stateLabels, type Food, type IngredientMealDraft, type RecipeDraft, type RecipeLog} from '../lib/recipes';
 
 type FoodDraft = {name:string; meal:string; calories:number; protein:number; carbs:number; fat:number};
@@ -16,7 +17,7 @@ type Props = {
   account:string|null; cloud:boolean; email:string; password:string; error:string;
   setEmail:Setter<string>; setPassword:Setter<string>; setError:Setter<string>;
   auth:(signup:boolean)=>Promise<void>; authPending:boolean; authMessage:string; signOut:()=>unknown;
-  localImport:{profiles:number;recipes:number;entries:number;weights:number}|null; importing:boolean; importLocalData:()=>Promise<void>; cloudNotice:string;
+  localImport:{pantry:number;profiles:number;recipes:number;entries:number;weights:number}|null; importing:boolean; importLocalData:()=>Promise<void>; cloudNotice:string;
   profiles:Profile[]; who:string; setWho:Setter<string>;
   tab:string; setTab:Setter<string>; day:string; setDay:Setter<string>;
   entries:Entry[]; recipes:Recipe[]; weights:Weight[];
@@ -28,7 +29,7 @@ type Props = {
 
 const navigation = [
   {name:'Dashboard', icon:LayoutDashboard}, {name:'Food diary', icon:Utensils},
-  {name:'My recipes', icon:BookOpen}, {name:'Weight log', icon:Scale},
+  {name:'My recipes', icon:BookOpen}, {name:'Pantry', icon:Package}, {name:'Weight log', icon:Scale},
 ];
 const meals = [
   {name:'Breakfast', icon:Sun, hint:'เริ่มวันด้วยมื้อดีๆ'},
@@ -89,13 +90,13 @@ export default function Workspace(props:Props) {
     <main className="content">
       <div className="page-heading"><div>
         <div className="eyebrow"><span/> A LITTLE BETTER, EVERY DAY</div>
-        <h1>{tab==='Dashboard'?<>Feeling good starts here<span className="heading-dot">.</span></>:tab==='Food diary'?'Your daily bites.':tab==='My recipes'?'Made with love.':tab==='Weight log'?'Small steps, real progress.':'A little more about you.'}</h1>
-        <p className="sub">{tab==='Dashboard'?`วันนี้กินดี ดูแลตัวเองไปด้วยกันนะ ${p.name}`:tab==='Food diary'?'ทุกมื้อเล็กๆ คือส่วนหนึ่งของการดูแลตัวเอง':tab==='My recipes'?'สูตรโปรดจากครัวของเรา แชร์กันได้ทั้งนิวและเบ้น':tab==='Weight log'?'ค่อยๆ ดูแลตัวเอง ในจังหวะที่เป็นคุณ':'ปรับข้อมูลและเป้าหมายให้เหมาะกับตัวเอง'}</p>
+        <h1>{tab==='Dashboard'?<>Feeling good starts here<span className="heading-dot">.</span></>:tab==='Food diary'?'Your daily bites.':tab==='My recipes'?'Made with love.':tab==='Pantry'?'Our everyday ingredients.':tab==='Weight log'?'Small steps, real progress.':'A little more about you.'}</h1>
+        <p className="sub">{tab==='Dashboard'?`วันนี้กินดี ดูแลตัวเองไปด้วยกันนะ ${p.name}`:tab==='Food diary'?'ทุกมื้อเล็กๆ คือส่วนหนึ่งของการดูแลตัวเอง':tab==='My recipes'?'สูตรโปรดจากครัวของเรา แชร์กันได้ทั้งนิวและเบ้น':tab==='Pantry'?'เครื่องปรุงและวัตถุดิบที่บ้านเราใช้ เลือกง่ายได้ทุกมื้อ':tab==='Weight log'?'ค่อยๆ ดูแลตัวเอง ในจังหวะที่เป็นคุณ':'ปรับข้อมูลและเป้าหมายให้เหมาะกับตัวเอง'}</p>
       </div>{['Dashboard','Food diary'].includes(tab)&&<button className="primary add-food" onClick={()=>openFood()}><Plus size={19}/> Add a meal</button>}</div>
 
       <p className="meal-status" role="status">{mealMessage}</p>
       {cloudNotice&&<p className="cloud-notice" role="status">{cloudNotice}</p>}
-      {localImport&&<section className="local-import"><div><span className="eyebrow">BRING YOUR GOOD DAYS WITH YOU</span><h3>นำเข้าข้อมูลเดิมจากอุปกรณ์นี้</h3><p>{localImport.profiles} โปรไฟล์ · {localImport.recipes} สูตร · {localImport.entries} รายการอาหาร · {localImport.weights} บันทึกน้ำหนัก</p><span>นำเข้าโปรไฟล์และเป้าหมายไปยังบัญชีที่ล็อกอินอยู่ โดยเก็บต้นฉบับในอุปกรณ์ไว้</span></div><button className="primary" disabled={importing} onClick={importLocalData}>{importing?'กำลังนำเข้า…':'นำเข้าข้อมูลเดิม'}</button></section>}
+      {localImport&&<section className="local-import"><div><span className="eyebrow">BRING YOUR GOOD DAYS WITH YOU</span><h3>นำเข้าข้อมูลเดิมจากอุปกรณ์นี้</h3><p>{localImport.profiles} โปรไฟล์ · {localImport.pantry} ของในตู้ · {localImport.recipes} สูตร · {localImport.entries} รายการอาหาร · {localImport.weights} บันทึกน้ำหนัก</p><span>นำเข้าโปรไฟล์และเป้าหมายไปยังบัญชีที่ล็อกอินอยู่ โดยเก็บต้นฉบับในอุปกรณ์ไว้</span></div><button className="primary" disabled={importing} onClick={importLocalData}>{importing?'กำลังนำเข้า…':'นำเข้าข้อมูลเดิม'}</button></section>}
       {error&&<div className="alert" role="alert">{error}<button aria-label="Dismiss error" onClick={()=>setError('')}><X size={16}/></button></div>}
       {['Dashboard','Food diary','Weight log'].includes(tab)&&<div className="day-toolbar"><div className="day-picker">
         <button className="icon-button" aria-label="Previous day" onClick={()=>changeDay(-1)}><ChevronLeft size={17}/></button>
@@ -144,7 +145,7 @@ export default function Workspace(props:Props) {
       </>}
 
       {tab==='Food diary'&&<section className="panel"><div className="section-heading"><div><span className="eyebrow">YOUR FOOD JOURNAL</span><h3>A day of nourishment</h3></div><span className="total-badge">{eaten.toLocaleString()} kcal</span></div>
-        {entries.length?entries.map(x=><div className="entry" key={x.id}><span className="meal-icon meal-1"><Utensils size={20}/></span><div className="entry-description"><b>{x.name}</b><span>{x.meal}{x.portion_amount ? ` · ${x.portion_amount} ${x.portion_unit === 'grams' ? 'g' : 'เสิร์ฟ'}` : ''} · Protein {x.protein}g / Carbs {x.carbs}g / Fat {x.fat}g</span>{!!x.ingredient_items?.length&&<details className="entry-ingredients"><summary>วัตถุดิบ ({x.ingredient_items.length})</summary><ul>{x.ingredient_items.map(item=><li key={item.id}>{item.food.name} ({stateLabels[item.food.state]}) <b>{item.grams} g</b></li>)}</ul></details>}</div><b>{x.calories} <small>kcal</small></b><button className="icon-button" aria-label={`Delete ${x.name}`} onClick={()=>removeFood(x.id)}><X size={17}/></button></div>):<div className="empty-state"><img src="/illustrations/salad-bowl.svg" alt=""/><h3>Your first bite starts here.</h3><p>ยังไม่มีมื้ออาหารในวันนี้ เพิ่มเมนูที่คุณอร่อยได้เลย</p><button className="primary" onClick={()=>openFood()}><Plus size={17}/> Add your first meal</button></div>}
+        {entries.length?entries.map(x=><div className="entry" key={x.id}><span className="meal-icon meal-1"><Utensils size={20}/></span><div className="entry-description"><b>{x.name}</b><span>{x.meal}{x.portion_amount ? ` · ${x.portion_amount} ${x.portion_unit === 'grams' ? 'g' : 'เสิร์ฟ'}` : ''} · Protein {x.protein}g / Carbs {x.carbs}g / Fat {x.fat}g</span>{!!x.ingredient_items?.length&&<details className="entry-ingredients"><summary>วัตถุดิบ ({x.ingredient_items.length})</summary><ul>{x.ingredient_items.map(item=><li key={item.id}>{item.food.name} ({stateLabels[item.food.state]}) <b>{item.grams} {item.unit||'g'}</b></li>)}</ul></details>}</div><b>{x.calories} <small>kcal</small></b><button className="icon-button" aria-label={`Delete ${x.name}`} onClick={()=>removeFood(x.id)}><X size={17}/></button></div>):<div className="empty-state"><img src="/illustrations/salad-bowl.svg" alt=""/><h3>Your first bite starts here.</h3><p>ยังไม่มีมื้ออาหารในวันนี้ เพิ่มเมนูที่คุณอร่อยได้เลย</p><button className="primary" onClick={()=>openFood()}><Plus size={17}/> Add your first meal</button></div>}
       </section>}
 
       {tab==='My recipes'&&<RecipeBuilder extraFoods={ingredientFoods} startNew={cookbookStart} initialMeal={cookbookStart?food.meal:undefined} recipes={recipes} profiles={profiles} who={who} day={day} onSave={saveRecipe} onLog={logRecipe}/>}
@@ -154,6 +155,7 @@ export default function Workspace(props:Props) {
         {weights.filter(x=>x.profile_id===who).length?weights.filter(x=>x.profile_id===who).sort((a,b)=>b.date.localeCompare(a.date)).map(x=><div className="entry" key={x.id}><span>{x.date}</span><b>{x.weight} <small>kg</small></b></div>):<div className="simple-empty"><Leaf size={30}/><p>เริ่มบันทึกน้ำหนัก แล้วค่อยๆ ดูความเปลี่ยนแปลงไปด้วยกัน</p></div>}
       </section>}
 
+      {tab==='Pantry'&&<Pantry/>}
       {tab==='Settings'&&<NutritionSettings key={who} profile={p} onSave={saveProfile}/>}
 
       <footer><Brand/><span>A little care goes a long way.</span><div><span className="sync-dot"/>{cloud?'Connected':'Saved on this device'}{cloud&&<button className="textbutton" onClick={signOut}><LogOut size={13}/> Sign out</button>}</div></footer>

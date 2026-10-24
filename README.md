@@ -12,7 +12,7 @@ Personal nutrition journal for New & Ben, with a shared cookbook and separate da
 - Organization: **thossapron29**
 - Region: **Singapore** (`ap-southeast-1`)
 - Dashboard: https://supabase.com/dashboard/project/qkyqiufpluxfgyjhtqzr
-- The database was bootstrapped with remote `init_daily_fuel`, then updated with `add_one_off_meal_ingredients` (`supabase/ingredient-meals.sql`). `supabase/schema.sql` includes both for fresh projects; do not rerun the bootstrap over an existing installation.
+- The database was bootstrapped with remote `init_daily_fuel`, then updated with `add_one_off_meal_ingredients` (`supabase/ingredient-meals.sql`) and `add_shared_pantry` (`supabase/pantry.sql`). `supabase/schema.sql` includes all updates for fresh projects; do not rerun the bootstrap over an existing installation.
 - `.env.local` contains the project URL and public publishable key. It is ignored by Git. No service-role/secret key is used in the browser.
 - Auth Site URL is `https://daily-fuel-inky.vercel.app`. Exact redirect URLs allow the production root (with and without a trailing slash) and `http://localhost:3001` (with and without a trailing slash). Email confirmation remains enabled.
 
@@ -34,10 +34,11 @@ Browser storage belongs to its origin: if your existing data was entered on `loc
 
 After signing into an empty household, the app offers **นำเข้าข้อมูลเดิม** when it finds a valid `dailyfuel` snapshot in that browser. Import before entering new cloud meals or recipes.
 
-The import includes both profiles and goals, recipes (including ingredient/source snapshots), diary entries and weight logs. The server maps local profile slots to new database UUIDs and assigns ownership from the authenticated session. It performs the entire operation in one transaction, records a receipt to make retries idempotent, and rejects importing over existing cloud records. On failure, partial cloud data is rolled back and the original browser data remains untouched. The original `dailyfuel` value is retained even after success.
+The import includes both profiles and goals, recipes (including ingredient/source snapshots), pantry items, diary entries and weight logs. The server maps local profile slots to new database UUIDs and assigns ownership from the authenticated session. It performs the entire operation in one transaction, records a receipt to make retries idempotent, and rejects importing over existing cloud records. On failure, partial cloud data is rolled back and the original browser data remains untouched. The original `dailyfuel` value is retained even after success.
 
 ## Tables and access
 
+- `pantry_items`: account-owned reusable foods/condiments shared by both profiles, including brand, barcode, native g/ml unit and reversible archive status.
 - `profiles`: New/Ben body data, calorie goal and macro plan.
 - `recipes`: shared recipes, ingredient nutrition snapshots and cooked yield.
 - `entries`: per-profile/date meals, stored nutrition, recipe portion metadata and one-off ingredient/source snapshots.
@@ -64,13 +65,13 @@ Macro grams use the selected calorie goal, at 4 kcal/g for protein/carbohydrates
 
 The cookbook starts with saved recipes and a create button. Creating or editing a recipe has three steps: ingredients for the full batch, name/servings (and optional measured cooked yield), then review/save. Search and select an ingredient, choose its weighed state and enter grams; source details are available in a disclosure. Switching state selects a different source record, not an invented raw-to-cooked weight conversion. Nutrition scales from per-100g source values; the source energy field is preserved rather than reconstructed using 4/4/9.
 
-`lib/foods.ts` contains 13 curated USDA FoodData Central / SR Legacy records verified through the official Food Details API on 2026-10-23. This is an offline starter catalog, not live USDA search. Each record links to its FDC source. The catalog includes ground beef with specified fat percentages, rice, chicken breast, boiled egg, olive oil, salt, water and Greek yogurt. Match the source preparation description to the food actually weighed.
+`lib/foods.ts` contains 35 curated USDA FoodData Central / SR Legacy records verified through the official Food Details API on 2026-10-23/24. This is an offline starter catalog, not live USDA search. Each record links to its FDC source. The Thai cooking starter library includes raw/cooked pork and beef, rice, chicken, eggs, shrimp, tofu, vegetables, herbs, sugar, oils and generic fish/oyster/soy sauces. Generic sauces and basil are explicitly labelled as reference values; they are not nutrition for a particular Thai brand or cultivar. Match the source preparation description to the food actually weighed.
 
 For brands/condiments, enter the label's reference grams and nutrients (e.g. per 15 g). The app normalizes the basis automatically. Saved product-label ingredients become available in later recipes and are marked as manually entered rather than USDA-verified.
 
 Saving a recipe does not count it as eaten. **Add a meal** offers direct ingredient entry or a saved recipe. Saved recipes use the same portion form as cookbook cards. Meal shortcuts preserve Breakfast/Lunch/Dinner/Snack. Creating a recipe from this dialog also preserves the intended meal for the follow-up log. Manual calorie/macro entry is a secondary option under the nutrition-info disclosure.
 
-For a one-off meal, choose **เลือกวัตถุดิบสำหรับมื้อนี้**, select who is eating, and enter ingredient grams actually eaten by that person. Raw/cooked selection, product labels and nutrition calculation work like the cookbook, but there is no serving denominator or recipe record. The current date/meal are prefilled; name and date adjustments are optional. Blank names use ingredient names automatically. Food diary retains ingredient grams, preparation states and source snapshots after reload. Label ingredients from these meals can be reused in later meals or recipes. Dashboard uses the stored meal nutrition for the selected person/date.
+For a one-off meal, choose **เลือกวัตถุดิบสำหรับมื้อนี้**, select who is eating, and enter ingredient amounts actually eaten by that person. Raw/cooked selection, product labels and nutrition calculation work like the cookbook, but there is no serving denominator or recipe record. The current date/meal are prefilled; name and date adjustments are optional. Blank names use ingredient names automatically. Food diary retains ingredient amounts/units, preparation states and source snapshots after reload. Label ingredients from these meals can be reused in later meals or recipes. Dashboard uses the stored meal nutrition for the selected person/date.
 
 Save servings and optionally measured cooked yield. Gram portions require cooked yield; it is never inferred from raw ingredient weights. Select the people eating and enter a positive amount for each. New and Ben can log different amounts, including fractional servings, in one operation. Unchecked people receive no entry; the whole recipe need not be consumed. This is portion logging, not batch inventory management. The estimate assumes evenly mixed food; drained liquids, discarded oil and uneven servings can affect it.
 
@@ -87,11 +88,27 @@ npx tsc --noEmit
 
 `supabase/verify.sql` uses a transaction with disposable reserved test identities and rolls everything back. It verifies CRUD, import retries, atomic rollback, profile mapping, immutable diary snapshots and account isolation. It has been executed successfully against this project. Anonymous REST reads were checked and rejected with 401. The latest Supabase security advisory flags disabled [Leaked Password Protection](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection); database RLS remains enabled and ownership-based.
 
-`supabase/verify-ingredient-meals.sql` additionally verifies ingredient snapshot import/read, no implicit recipe creation, import retry safety, legacy entry defaults, JSON-array validation and cross-account read isolation. It passed remotely with all fixture records rolled back. The 25 Node tests cover direct-gram totals, rounding, label scaling, independent snapshots and invalid input rejection. Local browser checks use the actual Home/Workspace in a separate origin without Supabase configuration, and cover saving, refreshing, diary details, no recipe creation, profile/date selection and mobile layout.
+`supabase/verify-ingredient-meals.sql` additionally verifies ingredient snapshot import/read, no implicit recipe creation, import retry safety, legacy entry defaults, JSON-array validation and cross-account read isolation. It passed remotely with all fixture records rolled back. The Node tests cover direct-gram totals, rounding, label scaling, independent snapshots and invalid input rejection. Local browser checks use the actual Home/Workspace in a separate origin without Supabase configuration, and cover saving, refreshing, diary details, no recipe creation, profile/date selection and mobile layout.
 
 Browser tests cover sign-in-session loading, cloud error/retry, local import success/failure, backup retention and sign-out using mocked Auth/REST responses. No email or password belonging to the user is used in automated tests, and no real verification email is sent by tests.
 
 The guided cookbook/meal UI was also exercised in an isolated in-memory preview using the actual Workspace components, at desktop and 390px widths. Checks included raw/cooked ingredients, label-basis scaling, recipe save without consumption, separate profile portions, Dashboard/diary totals, measured-yield gram portions and empty-person validation. These checks did not write to a real user's Supabase records.
+
+## Shared pantry and barcode lookup
+
+Open **Pantry** to save ingredients independently of meals and recipes. Both profile slots use the same account-owned pantry. Products retain name, brand/variant, category, preparation, barcode, label basis and source. Saving does not add calories to the journal. Editing a pantry item does not change previous meal/recipe ingredient snapshots. Archiving hides an item from new selections; it can be restored. No hard-delete operation is exposed for pantry items.
+
+Choose **ของในตู้**, **คลังอาหารไทย** or **ทั้งหมด** in the meal/recipe picker. Add a label or look up a barcode from either the pantry page or the ingredient picker. Product forms require all four nutrients and an explicit review; missing data is left blank instead of filled with zero. Catalogue reference nutrition/units/preparation are kept fixed when copying it into the pantry; use a new label entry for a branded product.
+
+Nutrition values are stored per 100 of the food's native unit (`g` or `ml`). A label per 15 ml is scaled within ml; no density is invented. Legacy ingredients still use grams. The historical JSON quantity key remains `grams` for compatibility, with `unit: "ml"` for volume entries; new snapshots always specify a unit. Cooked recipe yield remains a separately measured mass in grams.
+
+**ค้นหาด้วยบาร์โค้ด** accepts a typed/pasted EAN/UPC/GTIN, validates its checksum and canonicalizes UPC/GTIN equivalents. It checks this household's pantry first, then `/api/barcode` queries Open Food Facts v3.6. The server verifies the session with Supabase Auth before querying the external database. Unconfigured production or unauthenticated requests are rejected. Local development without Supabase configuration supports isolated UI tests.
+
+The parser chooses one `as_sold` packaging nutrition set with an explicit quantity/unit, never blends g/ml datasets or estimated nutrients, and preserves unknowns. Barcode results must be reviewed against the actual label. Queries have a 10-second upstream timeout, a 24-hour public-product fetch cache and an 8/minute per-account **best-effort process-local** throttle; this is not a distributed quota. There are no external writes or product-photo uploads. Camera scanning and label-photo OCR are deferred.
+
+Open Food Facts is community-provided data under [ODbL](https://openfoodfacts.github.io/openfoodfacts-server/api/). Imported records retain attribution and their product link. Data coverage/completeness varies; manual label entry remains available on failures or missing fields. No product data is uploaded back to Open Food Facts.
+
+`supabase/verify-pantry.sql` passed remotely with all fixtures rolled back: pantry import/read, ownership assignment, barcode uniqueness, archive/restore, preserved meal snapshots and cross-account RLS. The automated tests also cover native units, legacy compatibility, barcode parsing, production authentication, missing data, upstream failures and rate limits. Browser checks used the actual Home/Workspace at an isolated local origin, including a real read-only barcode lookup, independent pantry save, shared profile use, mixed g/ml meal logging, reload persistence and mobile layout.
 
 ## Deployment
 

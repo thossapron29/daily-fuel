@@ -1,6 +1,8 @@
 'use client';
 import {useEffect,useState} from 'react';
 import Workspace from './workspace';
+import {PantryContext} from './pantry-context';
+import {buildPantryItem,pantryToRow,pantryFromRow,normalizeBarcode,type PantryItem,type PantryDraft,type BarcodeCandidate} from '../lib/pantry';
 import {defaultProfiles,Profile,Entry,Recipe,today,uid,getSupabase} from '../lib/data';
 import {validateNutritionProfile} from '../lib/nutrition';
 import {parseLocalBackup, type LocalBackup} from '../lib/local-backup';
@@ -11,16 +13,17 @@ export default function Home(){
  const [account,setAccount]=useState<string|null>(null),[email,setEmail]=useState(''),[password,setPassword]=useState(''),[error,setError]=useState('');
  const [profiles,setProfiles]=useState<Profile[]>(defaultProfiles),[who,setWho]=useState('new'),[tab,setTab]=useState('Dashboard'),[day,setDay]=useState(today());
  const [entries,setEntries]=useState<Entry[]>([]),[recipes,setRecipes]=useState<Recipe[]>([]),[weights,setWeights]=useState<{id:string;profile_id:string;date:string;weight:number}[]>([]);
+ const [pantry,setPantry]=useState<PantryItem[]>([]);
  const [food,setFood]=useState({name:'',meal:'Lunch',calories:0,protein:0,carbs:0,fat:0}),[weight,setWeight]=useState(0);
  const list=entries.filter(x=>x.profile_id===who&&x.date===day);
- const save=(ps=profiles,es=entries,rs=recipes,ws=weights)=>{if(!db)localStorage.setItem('dailyfuel',JSON.stringify({profiles:ps,entries:es,recipes:rs,weights:ws}))};
+ const save=(ps=profiles,es=entries,rs=recipes,ws=weights,pantryItems=pantry)=>{if(!db)localStorage.setItem('dailyfuel',JSON.stringify({profiles:ps,entries:es,recipes:rs,weights:ws,pantry:pantryItems}))};
  const [authReady,setAuthReady]=useState(!db),[loadedAccount,setLoadedAccount]=useState<string|null>(null);
  const [loadFailure,setLoadFailure]=useState(''),[reloadVersion,setReloadVersion]=useState(0);
  const [localBackup,setLocalBackup]=useState<LocalBackup|null>(null),[importing,setImporting]=useState(false),[cloudNotice,setCloudNotice]=useState('');
  const [authPending,setAuthPending]=useState(false),[authMessage,setAuthMessage]=useState('');
  useEffect(()=>{
   if(!db){
-   try{const x=parseLocalBackup(localStorage.getItem('dailyfuel'));if(x){setProfiles(x.profiles);setEntries(x.entries);setRecipes(x.recipes);setWeights(x.weights)}}catch{setError('อ่านข้อมูลในอุปกรณ์ไม่สำเร็จ ข้อมูลต้นฉบับยังอยู่ในเบราว์เซอร์')}
+   try{const x=parseLocalBackup(localStorage.getItem('dailyfuel'));if(x){setProfiles(x.profiles);setEntries(x.entries);setRecipes(x.recipes);setWeights(x.weights);setPantry(x.pantry)}}catch{setError('อ่านข้อมูลในอุปกรณ์ไม่สำเร็จ ข้อมูลต้นฉบับยังอยู่ในเบราว์เซอร์')}
    return;
   }
   const {data:{subscription}}=db.auth.onAuthStateChange((_,session)=>{setAccount(session?.user?.id??null);setAuthReady(true)});
@@ -28,7 +31,7 @@ export default function Home(){
  },[]);
  useEffect(()=>{
   if(!db)return;
-  if(!account){setProfiles(defaultProfiles);setEntries([]);setRecipes([]);setWeights([]);setLocalBackup(null);setLoadedAccount(null);return}
+  if(!account){setProfiles(defaultProfiles);setEntries([]);setRecipes([]);setWeights([]);setPantry([]);setLocalBackup(null);setLoadedAccount(null);return}
   let cancelled=false;
   setLoadFailure('');
   (async()=>{
@@ -36,8 +39,8 @@ export default function Home(){
     const defaults=defaultProfiles.map(profile=>({owner_id:account,slot:profile.id,name:profile.name,sex:profile.sex,age:profile.age,weight:profile.weight,height:profile.height,activity:profile.activity,body_fat:profile.body_fat,goal:profile.goal,adjustment:profile.adjustment,macro_plan:profile.macro_plan??'moderate'}));
     const bootstrap=await db.from('profiles').upsert(defaults,{onConflict:'owner_id,slot',ignoreDuplicates:true});
     if(bootstrap.error)throw bootstrap.error;
-    const [ps,es,rs,ws,receipts]=await Promise.all(['profiles','entries','recipes','weights','import_receipts'].map(table=>db.from(table).select('*').eq('owner_id',account)));
-    for(const result of [ps,es,rs,ws,receipts])if(result.error)throw result.error;
+    const [ps,es,rs,ws,receipts,pantryResult]=await Promise.all(['profiles','entries','recipes','weights','import_receipts','pantry_items'].map(table=>db.from(table).select('*').eq('owner_id',account)));
+    for(const result of [ps,es,rs,ws,receipts,pantryResult])if(result.error)throw result.error;
     if(cancelled)return;
     const lookup=new Map((ps.data||[]).map(profile=>[profile.id,profile.slot]));
     const loadedProfiles=(ps.data||[]).map(profile=>({...profile,id:profile.slot,dbid:profile.id}));
@@ -46,13 +49,40 @@ export default function Home(){
     setEntries((es.data||[]).map(entry=>({...entry,profile_id:lookup.get(entry.profile_id)||entry.profile_id})));
     setRecipes(rs.data||[]);
     setWeights((ws.data||[]).map(entry=>({...entry,profile_id:lookup.get(entry.profile_id)||entry.profile_id})));
-    const isEmpty=!es.data?.length&&!rs.data?.length&&!ws.data?.length&&!receipts.data?.length;
+    setPantry((pantryResult.data||[]).map(pantryFromRow));
+    const isEmpty=!es.data?.length&&!rs.data?.length&&!ws.data?.length&&!receipts.data?.length&&!pantryResult.data?.length;
     try{setLocalBackup(isEmpty?parseLocalBackup(localStorage.getItem('dailyfuel')):null)}catch{setCloudNotice('ข้อมูลเดิมในอุปกรณ์นี้ยังอยู่ แต่ยังอ่านเพื่อนำเข้าไม่ได้')}
     setLoadedAccount(account);
    }catch(error){if(!cancelled)setLoadFailure(messageOf(error,'โหลดข้อมูลจาก Supabase ไม่สำเร็จ'))}
   })();
   return()=>{cancelled=true};
  },[account,reloadVersion]);
+ async function savePantry(draft:PantryDraft):Promise<PantryItem>{
+  const item=buildPantryItem(draft,draft.id||uid());
+  if(draft.id&&!pantry.some(food=>food.id===draft.id))throw new Error('ไม่พบรายการเดิม กรุณาเปิดตู้ใหม่');
+  if(item.barcode&&pantry.some(food=>food.id!==item.id&&food.barcode===item.barcode))throw new Error('มีบาร์โค้ดนี้ในตู้แล้ว ให้เปิดแก้ไขหรือนำรายการเดิมกลับเข้าตู้');
+  if(db){
+   if(!account)throw new Error('กรุณาเข้าสู่ระบบก่อนบันทึก');
+   const row=pantryToRow(item);
+   const request=draft.id?db.from('pantry_items').update(row).eq('id',item.id).eq('owner_id',account):db.from('pantry_items').insert({...row,owner_id:account});
+   const {error}=await request.select('id').single();if(error)throw error;
+  }
+  const next=draft.id?pantry.map(food=>food.id===item.id?item:food):[...pantry,item];
+  save(profiles,entries,recipes,weights,next);setPantry(next);return item;
+ }
+ async function archivePantry(id:string,archived:boolean){
+  if(!pantry.some(food=>food.id===id))throw new Error('ไม่พบรายการเดิม กรุณาเปิดตู้ใหม่');
+  if(db){if(!account)throw new Error('กรุณาเข้าสู่ระบบก่อนบันทึก');const {error}=await db.from('pantry_items').update({archived}).eq('id',id).eq('owner_id',account).select('id').single();if(error)throw error}
+  const next=pantry.map(food=>food.id===id?{...food,archived}:food);save(profiles,entries,recipes,weights,next);setPantry(next);
+ }
+ async function lookupBarcode(input:string):Promise<BarcodeCandidate>{
+  const barcode=normalizeBarcode(input);const existing=pantry.find(food=>food.barcode===barcode);
+  if(existing)return {name:existing.name,brand:existing.brand||'',barcode,basis:100,basis_unit:existing.basis_unit||'g',values:{calories:existing.calories,protein:existing.protein,carbs:existing.carbs,fat:existing.fat},source:existing.source,source_url:existing.source_url||'',source_id:existing.source_id||barcode};
+  const headers:Record<string,string>={'Content-Type':'application/json'};
+  if(db){const {data,error}=await db.auth.getSession();if(error||!data.session)throw new Error('กรุณาเข้าสู่ระบบก่อนค้นหา');headers.Authorization=`Bearer ${data.session.access_token}`}
+  const response=await fetch('/api/barcode',{method:'POST',headers,body:JSON.stringify({barcode})});
+  const result=await response.json();if(!response.ok)throw new Error(result.error||'ค้นหาสินค้าไม่สำเร็จ ลองใหม่ได้ครับ');return result.product;
+ }
  async function importLocalData(){
   if(!db||!account||!localBackup||importing)return;
   setImporting(true);setError('');
@@ -184,5 +214,5 @@ export default function Home(){
  }
 
 
- return <Workspace account={account} cloud={!!db} email={email} password={password} error={error} setEmail={setEmail} setPassword={setPassword} setError={setError} auth={auth} authPending={authPending} authMessage={authMessage} signOut={signOut} localImport={localBackup?{profiles:localBackup.profiles.length,recipes:localBackup.recipes.length,entries:localBackup.entries.length,weights:localBackup.weights.length}:null} importing={importing} importLocalData={importLocalData} cloudNotice={cloudNotice} profiles={profiles} who={who} setWho={setWho} tab={tab} setTab={setTab} day={day} setDay={setDay} entries={list} recipes={recipes} weights={weights} food={food} setFood={setFood} weight={weight} setWeight={setWeight} addFood={addFood} addIngredientMeal={addIngredientMeal} ingredientFoods={entries.flatMap(entry=>(entry.ingredient_items||[]).map(item=>item.food))} removeFood={removeFood} saveRecipe={saveRecipe} logRecipe={logRecipe} saveProfile={saveProfile} addWeight={addWeight}/>
+ return <PantryContext.Provider value={{items:pantry,save:savePantry,archive:archivePantry,lookup:lookupBarcode}}><Workspace account={account} cloud={!!db} email={email} password={password} error={error} setEmail={setEmail} setPassword={setPassword} setError={setError} auth={auth} authPending={authPending} authMessage={authMessage} signOut={signOut} localImport={localBackup?{pantry:localBackup.pantry.length,profiles:localBackup.profiles.length,recipes:localBackup.recipes.length,entries:localBackup.entries.length,weights:localBackup.weights.length}:null} importing={importing} importLocalData={importLocalData} cloudNotice={cloudNotice} profiles={profiles} who={who} setWho={setWho} tab={tab} setTab={setTab} day={day} setDay={setDay} entries={list} recipes={recipes} weights={weights} food={food} setFood={setFood} weight={weight} setWeight={setWeight} addFood={addFood} addIngredientMeal={addIngredientMeal} ingredientFoods={entries.flatMap(entry=>(entry.ingredient_items||[]).map(item=>item.food))} removeFood={removeFood} saveRecipe={saveRecipe} logRecipe={logRecipe} saveProfile={saveProfile} addWeight={addWeight}/></PantryContext.Provider>
 }

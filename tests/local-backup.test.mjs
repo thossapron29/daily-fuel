@@ -15,7 +15,14 @@ test('old browser data is normalized without modifying the original snapshot',()
 });
 test('missing optional collections become empty arrays',()=>{
   const backup=parseLocalBackup(JSON.stringify({profiles:[profile('new'),profile('ben')]}));
-  assert.deepEqual(backup.entries,[]);assert.deepEqual(backup.recipes,[]);assert.deepEqual(backup.weights,[]);
+  assert.deepEqual(backup.entries,[]);assert.deepEqual(backup.recipes,[]);assert.deepEqual(backup.weights,[]);assert.deepEqual(backup.pantry,[]);
+});
+test('pantry data and ml ingredient snapshots survive backup parsing',()=>{
+ const saved={id:'fixture-pantry',name:'Sauce',basis_unit:'ml',label_basis:15,calories:67,protein:.7,carbs:16,fat:0,archived:false};
+ const entry={id:'meal',profile_id:'new',ingredient_items:[{id:'row',food:saved,grams:15,unit:'ml'}]};
+ const backup=parseLocalBackup(JSON.stringify({profiles:[profile('new'),profile('ben')],pantry:[saved],entries:[entry]}));
+ assert.deepEqual(backup.pantry,[saved]);assert.deepEqual(backup.entries[0],entry);
+ assert.throws(()=>parseLocalBackup(JSON.stringify({profiles:[profile('new'),profile('ben')],pantry:{}})));
 });
 test('invalid snapshots fail explicitly while absent backups are harmless',()=>{
   assert.equal(parseLocalBackup(null),null);assert.equal(parseLocalBackup(JSON.stringify({profiles:[]})),null);

@@ -1,7 +1,11 @@
 export type Nutrients = {calories: number; protein: number; carbs: number; fat: number};
 export type FoodState = 'raw' | 'cooked' | 'as_sold';
-export type Food = Nutrients & {id: string; group: string; name: string; description: string; state: FoodState; source: string; source_url?: string; source_id?: string};
-export type RecipeIngredient = {id: string; food: Food; grams: number};
+export type FoodUnit = 'g' | 'ml';
+export type FoodCategory = 'protein' | 'carb' | 'vegetable' | 'seasoning' | 'other';
+// Nutrients are per 100 of basis_unit; older snapshots are always per 100 g.
+export type Food = Nutrients & {id: string; group: string; name: string; description: string; state: FoodState; source: string; source_url?: string; source_id?: string; basis_unit?:FoodUnit; category?:FoodCategory; brand?:string; barcode?:string; label_basis?:number; aliases?:string[]};
+// Keep the legacy quantity key for saved data; unit disambiguates ml quantities.
+export type RecipeIngredient = {id: string; food: Food; grams: number; unit?:FoodUnit};
 export type Recipe = Nutrients & {id: string; name: string; servings: number; ingredients: string; ingredient_items?: RecipeIngredient[]; yield_grams?: number | null};
 export type RecipeDraft = {id?: string; name: string; servings: number; yield_grams: number | null; ingredient_items: RecipeIngredient[]};
 export type PortionUnit = 'grams' | 'servings';
@@ -14,15 +18,17 @@ const positive = (value: number) => Number.isFinite(value) && value > 0;
 export const validNutrients = (values: Nutrients) => nutrientKeys.every(key => Number.isFinite(values[key]) && values[key] >= 0);
 export const roundNutrition = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
 
-export function foodFromLabel(label: Nutrients & {name: string; state: FoodState; basis: number}, id: string): Food {
+export function foodFromLabel(label: Nutrients & {name: string; state: FoodState; basis: number; basis_unit?:FoodUnit}, id: string): Food {
   if (!label.name.trim() || !positive(label.basis) || !validNutrients(label) || !Object.hasOwn(stateLabels, label.state)) throw new Error('กรอกชื่อ ปริมาณอ้างอิง และสารอาหารจากฉลากให้ถูกต้อง');
+  if(label.basis_unit!=null&&!['g','ml'].includes(label.basis_unit))throw new Error('เลือกหน่วย g หรือ ml ตามฉลาก');
   const values = Object.fromEntries(nutrientKeys.map(key => [key, label[key] * 100 / label.basis])) as Nutrients;
   if (!validNutrients(values)) throw new Error('ตรวจสอบปริมาณอ้างอิงบนฉลาก');
-  return {...values, id, group: id, name: label.name.trim(), description: `ฉลากต่อ ${label.basis} g`, state: label.state, source: 'ฉลากสินค้า / กรอกเอง'};
+  return {...values, id, group: id, name: label.name.trim(), description: `ฉลากต่อ ${label.basis} ${label.basis_unit||'g'}`, state: label.state, source: 'ฉลากสินค้า / กรอกเอง',basis_unit:label.basis_unit||'g',label_basis:label.basis};
 }
 
 export function ingredientNutrition(item: RecipeIngredient): Nutrients {
-  if (!positive(item.grams) || !validNutrients(item.food) || !Object.hasOwn(stateLabels, item.food.state)) throw new Error('ตรวจสอบกรัม สถานะ และสารอาหารของวัตถุดิบ');
+  if (!positive(item.grams) || !validNutrients(item.food) || !Object.hasOwn(stateLabels, item.food.state)) throw new Error('ตรวจสอบปริมาณ สถานะ และสารอาหารของวัตถุดิบ');
+  if(!['g','ml'].includes(item.unit||'g')||!['g','ml'].includes(item.food.basis_unit||'g')||(item.unit||'g')!==(item.food.basis_unit||'g'))throw new Error('ใช้หน่วยให้ตรงกับฉลาก ไม่แปลง g เป็น ml อัตโนมัติ');
   const values = Object.fromEntries(nutrientKeys.map(key => [key, item.food[key] * item.grams / 100])) as Nutrients;
   if (!validNutrients(values)) throw new Error('ปริมาณวัตถุดิบมากเกินไป');
   return values;
@@ -58,7 +64,7 @@ export function buildRecipe(draft: RecipeDraft, id: string): Recipe {
   const totals = recipeNutrition(draft.ingredient_items);
   return {id, name: draft.name.trim(), servings: draft.servings, yield_grams: draft.yield_grams,
     ingredient_items: draft.ingredient_items.map(item => ({...item, food: {...item.food}})),
-    ingredients: draft.ingredient_items.map(item => `${item.food.name} (${stateLabels[item.food.state]}) ${item.grams} g`).join(' · '), ...totals};
+    ingredients: draft.ingredient_items.map(item => `${item.food.name} (${stateLabels[item.food.state]}) ${item.grams} ${item.unit||'g'}`).join(' · '), ...totals};
 }
 export function portionNutrition(recipe: Recipe, amount: number, unit: PortionUnit): Nutrients {
   if (!['grams','servings'].includes(unit)) throw new Error('หน่วยปริมาณไม่ถูกต้อง');
