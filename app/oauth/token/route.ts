@@ -17,7 +17,7 @@ export async function POST(request:Request){
    if((client_id&&client_id!==id)||(client_secret&&client_secret!==secret))throw new ApiError(401,'invalid_client','Conflicting client authentication');
    client_id=id;client_secret=secret;
   }
-  const result=await bridge('exchange',{client_id,client_secret,grant_type:form.get('grant_type'),code:form.get('code'),redirect_uri:form.get('redirect_uri'),refresh_token:form.get('refresh_token'),code_verifier:form.get('code_verifier')});
+  const result=await bridge('exchange',{client_id,client_secret,grant_type:form.get('grant_type'),code:form.get('code'),redirect_uri:form.get('redirect_uri'),refresh_token:form.get('refresh_token'),code_verifier:form.get('code_verifier'),resource:form.get('resource')});
   return Response.json(result,{status:result.error?(result.error==='invalid_client'?401:400):200,headers:{...noStore,...(result.error==='invalid_client'?{'WWW-Authenticate':'Basic realm="Daily Fuel GPT"'}:{})}});
  }catch(error){const response=errorResponse(error instanceof SyntaxError?new ApiError(400,'invalid_request','Malformed token request'):error);if(response.status===401)response.headers.set('WWW-Authenticate','Basic realm="Daily Fuel GPT"');return response}
 }

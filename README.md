@@ -85,7 +85,19 @@ Partner matching happens on the server with literal substring search, deduplicat
 
 `supabase/verify-shared-menus.sql` verifies projection fields, exact duplicates versus different portions, linked lookup in both directions, isolated diaries/goals, source preservation after copying, outsider/anonymous denial, link-write denial and revocation. All test users and entries are rolled back. The live accounts were separately checked with read-only authenticated-role queries: partner menu lookup succeeds while direct foreign diary reads remain zero.
 
-## Daily Fuel GPT: scoped OAuth and joint meal logging
+## Daily Fuel Plugin + MCP
+
+The default onboarding at `/gpt` now uses a custom MCP plugin, not GPT Actions. Server URL: `https://daily-fuel-inky.vercel.app/mcp`. Public OAuth resource metadata is at `/.well-known/oauth-protected-resource` (also the `/mcp` suffix variant), and authorization-server metadata is at `/.well-known/oauth-authorization-server`. Discovery advertises static confidential clients, S256, resource `https://daily-fuel-inky.vercel.app/mcp`, and issuer identification. No DCR or CIMD is advertised. Client ID/secret are registered through the signed-in setup UI and entered directly by the owner in ChatGPT's Advanced OAuth settings. Plugin callbacks are exact allowlisted ChatGPT connector URLs. Existing legacy Action clients remain separate and usable until revoked.
+
+`lib/mcp.ts` implements stateless JSON-RPC/Streamable HTTP with public initialize/tools-list/ping, JSON or SSE replies, no server-side session, origin checks, per-tool OAuth security schemes and tool-level authentication metadata. The three tools are getMealRecipients, prepareMealBatch and getMealBatchStatus. They reuse the existing gateway and meal validation. Only draft preparation changes private pending state; receipt/status is read-only. The endpoint rejects arbitrary approval fields and binds every protected call to the server-owned MCP resource identifier.
+
+`supabase/mcp.sql` adds integration kind, resource binding on codes/tokens/drafts, approval audit fields and a shared private commit helper. MCP authorization requires S256 and the exact resource through both authorization and exchange/refresh. A token for the MCP audience cannot be replayed at the legacy REST resource. Issuer `iss` is returned on successful/denied authorization redirects.
+
+**Human review is enforced by the server, not model hints.** An MCP draft cannot be committed by the OAuth token, even with a forged approved flag. The owner opens `/gpt/review/<draft_id>` with their native Supabase session, reviews both immutable entries and clicks one confirmation button. The private helper locks current client/consents/links/draft and appends all entries atomically. Other native accounts cannot approve that draft. The MCP status tool then returns the original receipt without another write. Legacy REST commits still retain the prior Action confirmation flow.
+
+`supabase/verify-mcp.sql` tests required resource/S256, audience rejection, inability of a model token to approve, native owner checks, paired atomic append, audit, rounding, separate totals/goals and replay in a rollback-only transaction. The full legacy OAuth batch verification also remains valid. Transport/auth metadata tests are in `tests/mcp.test.mjs`. User guidance is at `/plugin/setup.md` and `/plugin/instructions.txt`.
+
+## Legacy Daily Fuel GPT: scoped OAuth and joint meal logging
 
 The integration is deployed at `/gpt`. It prepares connection settings and exposes `/api/gpt/openapi`, `/gpt/instructions.txt`, `/gpt/setup.md` and `/gpt/privacy`. A user must create/save their GPT, register its exact callback through the signed-in setup page, copy the one-time client credentials into the GPT editor, and grant access. No real OAuth clients/grants are automatically created or activated by setup. Both people must independently select their own profile and enable partner logging for the **same** GPT client before one connected ChatGPT conversation can append meals for both.
 

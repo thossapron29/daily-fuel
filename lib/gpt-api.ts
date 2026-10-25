@@ -1,4 +1,6 @@
 export const APP_ORIGIN='https://daily-fuel-inky.vercel.app';
+export const MCP_RESOURCE=APP_ORIGIN+'/mcp';
+export const MCP_CALLBACK='https://chatgpt.com/connector_platform_oauth_redirect';
 export const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export class ApiError extends Error {constructor(public status:number,public code:string,message:string){super(message)}}
 function invalid(message:string):never{throw new ApiError(400,'invalid_request',message)}
@@ -7,8 +9,9 @@ const object=(value:unknown):Record<string,unknown>=>{
  return value as Record<string,unknown>;
 };
 export function validCallback(value:string){
- return /^https:\/\/(chatgpt\.com|chat\.openai\.com)\/aip\/g-[A-Za-z0-9-]+\/oauth\/callback$/.test(value)&&!/[\s\x00-\x1f\x7f]/.test(value);
+ return (/^https:\/\/(chatgpt\.com|chat\.openai\.com)\/aip\/g-[A-Za-z0-9-]+\/oauth\/callback$/.test(value)||isMcpCallback(value))&&!/[\s\x00-\x1f\x7f]/.test(value);
 }
+export function isMcpCallback(value:string){return value===MCP_CALLBACK||/^https:\/\/chatgpt\.com\/connector\/oauth\/[A-Za-z0-9_-]+$/.test(value)}
 export function callbackFromInput(value:string){
  const text=value.trim();
  if(validCallback(text))return text;
@@ -23,7 +26,10 @@ export function authorizationParams(params:URLSearchParams){
  if(params.get('response_type')!=='code'||params.get('scope')!=='meals.write')invalid('Use response_type=code and scope=meals.write');
  const challenge=params.get('code_challenge'),method=params.get('code_challenge_method');
  if((challenge||method)&&(!challenge||!/^[A-Za-z0-9_-]{43}$/.test(challenge)||method!=='S256'))invalid('Only S256 PKCE is supported');
- return {client_id,redirect_uri,state,scope:'meals.write',challenge:challenge||null};
+ const resource=params.get('resource');
+ if(isMcpCallback(redirect_uri)&&(!challenge||resource!==MCP_RESOURCE))invalid('MCP requires S256 PKCE and the Daily Fuel MCP resource');
+ if(!isMcpCallback(redirect_uri)&&resource!==null)invalid('Resource is only supported by Plugin connections');
+ return {client_id,redirect_uri,state,scope:'meals.write',challenge:challenge||null,resource};
 }
 export function validateMealBatch(body:unknown){
  const value=object(body);

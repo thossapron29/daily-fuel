@@ -157,7 +157,7 @@ export default function Workspace(props:Props) {
       </section>}
 
       {tab==='Pantry'&&<Pantry/>}
-      {tab==='Settings'&&<><section className="panel gpt-settings-link"><div><span className="eyebrow">ONE CHAT, TWO HAPPY PLATES</span><h3>Daily Fuel GPT</h3><p>เชื่อม ChatGPT เพื่อเตรียมและบันทึกมื้อให้นิวกับเบ้น</p></div><a className="secondary" href="/gpt">ตั้งค่าการเชื่อมต่อ <ArrowRight size={16}/></a></section><NutritionSettings key={who} profile={p} onSave={saveProfile}/></>}
+      {tab==='Settings'&&<><section className="panel gpt-settings-link"><div><span className="eyebrow">ONE CHAT, TWO HAPPY PLATES</span><h3>Daily Fuel Plugin</h3><p>เชื่อม Plugin เพื่อเตรียมและบันทึกมื้อให้นิวกับเบ้น</p></div><a className="secondary" href="/gpt">ตั้งค่าการเชื่อมต่อ <ArrowRight size={16}/></a></section><NutritionSettings key={who} profile={p} onSave={saveProfile}/></>}
 
       <footer><Brand/><span>A little care goes a long way.</span><div><span className="sync-dot"/>{cloud?'Connected':'Saved on this device'}{cloud&&<button className="textbutton" onClick={signOut}><LogOut size={13}/> Sign out</button>}</div></footer>
     </main>
