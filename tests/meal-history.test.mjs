@@ -1,10 +1,7 @@
+import {moduleUrl} from './ts-module.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {readFile} from 'node:fs/promises';
-import ts from 'typescript';
-const source=await readFile(new URL('../lib/meal-history.ts',import.meta.url),'utf8');
-const {outputText}=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2020}});
-const {mealSuggestions,applyMealSuggestion,parseSharedMenus}=await import(`data:text/javascript;base64,${Buffer.from(outputText).toString('base64')}`);
+const {mealSuggestions,applyMealSuggestion,parseSharedMenus}=await import(await moduleUrl('../lib/meal-history.ts'));
 const meal=(id,patch={})=>({id,profile_id:'new',date:'2026-10-23',meal:'Lunch',name:'ข้าวลาบหมู',calories:550,protein:30.5,carbs:60,fat:20,...patch});
 const people=['new','ben'];
 

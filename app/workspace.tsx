@@ -4,6 +4,7 @@ import {useState, type Dispatch, type SetStateAction} from 'react';
 import {ArrowUpRight, ArrowRight, Plus, X, Sun, LayoutDashboard, Utensils, Scale, Settings, ChevronLeft, ChevronRight, CalendarDays, Flame, Leaf, Heart, Check, LogOut, Package} from 'lucide-react';
 import {type Profile, type Entry, type Recipe, target, tdee, bmr, today} from '../lib/data';
 import {goalOption, isCustomGoal, macroOption, macroTargets} from '../lib/nutrition';
+import DailyExtras,{NutritionAlerts,ExtraNutritionSummary} from './nutrition-awareness';
 import NutritionSettings from './nutrition-settings';
 import RecipeBuilder from './recipe-builder';
 import MealDialog from './meal-dialog';
@@ -106,29 +107,31 @@ export default function Workspace(props:Props) {
       </div><span className="day-note"><Leaf size={14}/> Your pace. Your progress.</span></div>}
 
       {tab==='Dashboard'&&<>
+        <NutritionAlerts entries={entries} goal={goal} macros={macroGoals} scope={`${account||'local'}:${who}:${day}`} name={p.name} onDiary={()=>setTab('Food diary')}/>
         <div className="dashboard-grid">
           <section className="welcome-card">
             <div className="welcome-copy"><span className="pill"><Sun size={14}/> A FRESH LITTLE START</span><h2>A little care,<br/>in every bite.</h2><p>มื้อดีๆ เริ่มจากความใส่ใจเล็กๆ<br/>มาเติมพลังให้วันนี้กัน</p></div>
             <img className="kitchen-art" src="/illustrations/kitchen-kindness.svg" alt="ภาพเวกเตอร์คนน่ารักกำลังทำสลัดในครัว"/>
             <div className="welcome-footer"><Heart size={14}/> Made for you, shared with love.</div>
           </section>
-          <section className="energy-card">
+          <section className={`energy-card ${eaten>goal?'energy-above':''}`}>
             <div className="card-heading"><h3>Daily energy</h3><span className="small-icon peach"><Flame size={18}/></span></div><p className="card-sub current-goal-label">{goalOption(p.goal).label}<span>·</span>{isCustomGoal(p) ? 'ปรับเอง' : 'เป้าหมายของคุณ'}</p>
             <div className="energy-ring" role="img" aria-label={`Consumed ${eaten} of ${goal} kilocalories, ${Math.round(progress)} percent`}>
               <svg viewBox="0 0 200 200" aria-hidden="true"><circle className="ring-track" cx="100" cy="100" r="86"/><circle className="ring-progress" cx="100" cy="100" r="86" strokeDasharray={`${progress*5.4035} 540.35`}/></svg>
-              <div className="ring-label"><span>You've enjoyed</span><strong>{eaten.toLocaleString()}</strong><span>of {goal.toLocaleString()} kcal</span></div><span className="ring-leaf"><Leaf size={19}/></span>
+              <div className="ring-label"><span>You've enjoyed</span><strong>{eaten.toLocaleString()}</strong><span>of {goal.toLocaleString()} kcal</span>{eaten>goal&&<span className="energy-over-badge">สูงกว่าแผน +{Math.round((eaten-goal)*100)/100} kcal</span>}</div><span className="ring-leaf"><Leaf size={19}/></span>
             </div>
             <div className="energy-bottom"><div><span>Daily goal</span><b>{goal.toLocaleString()} <small>kcal</small></b></div><span className="vertical-line"/><div><span>{eaten>goal?'Above goal':'Remaining'}</span><b className="accent">{Math.abs(goal-eaten).toLocaleString()} <small>kcal</small></b></div></div>
           </section>
           <section className="macro-card">
             <div className="card-heading"><h3>A little balance</h3><span className="small-icon sage"><Leaf size={18}/></span></div><p className="card-sub">สารอาหารของวันนี้</p>
-            <div className="macro-list">{macroInfo.map(m=>{const value=Math.round(entries.reduce((sum,x)=>sum+Number(x[m.key]),0));return <div className={`macro-row ${m.color}`} key={m.key}>
+            <div className="macro-list">{macroInfo.map(m=>{const value=Math.round(entries.reduce((sum,x)=>sum+Number(x[m.key]),0)*100)/100;return <div className={`macro-row ${m.color} ${m.key!=='protein'&&value>m.goal?'macro-above':''}`} key={m.key}>
               <div className="macro-title"><span><i/>{m.label}</span><b>{value}<small> / {m.goal} g</small></b></div><div className="progress-track" role="progressbar" aria-label={m.label} aria-valuenow={value} aria-valuemin={0} aria-valuemax={Math.max(value,m.goal)}><div style={{width:`${Math.min(100,value/Math.max(1,m.goal)*100)}%`}}/></div>
-            </div>})}</div>
+            {value>m.goal&&<p className="macro-over-label">{m.key==='protein'?'ถึงเป้าโปรตีนแล้ว':`สูงกว่าแผน +${Math.round((value-m.goal)*100)/100} g`}</p>}</div>})}</div>
             <div className="macro-note"><Leaf size={17}/><p>{macroPlan.label}<span>P {macroPlan.protein}% · C {macroPlan.carbs}% · F {macroPlan.fat}%</span></p></div>
           </section>
         </div>
 
+        <DailyExtras entries={entries} goal={goal}/>
         <div className="lower-grid">
           <section className="journal-card"><div className="section-heading"><div><span className="eyebrow">ONE MEAL AT A TIME</span><h3>On the menu today<span className="count-badge">{entries.length}</span></h3></div><button className="textbutton" onClick={()=>setTab('Food diary')}>View diary <ArrowUpRight size={15}/></button></div>
             <div className="meal-list">{meals.map(({name,icon:Icon,hint},i)=>{const items=entries.filter(x=>x.meal===name);return <div className="meal-row" key={name}>
@@ -146,7 +149,7 @@ export default function Workspace(props:Props) {
       </>}
 
       {tab==='Food diary'&&<section className="panel"><div className="section-heading"><div><span className="eyebrow">YOUR FOOD JOURNAL</span><h3>A day of nourishment</h3></div><span className="total-badge">{eaten.toLocaleString()} kcal</span></div>
-        {entries.length?entries.map(x=><div className="entry" key={x.id}><span className="meal-icon meal-1"><Utensils size={20}/></span><div className="entry-description"><b>{x.name}</b><span>{x.meal}{x.portion_amount ? ` · ${x.portion_amount} ${x.portion_unit === 'grams' ? 'g' : 'เสิร์ฟ'}` : ''} · Protein {x.protein}g / Carbs {x.carbs}g / Fat {x.fat}g</span>{x.nutrition_source==='chatgpt_estimate'&&<span className="entry-source">ประมาณจาก ChatGPT</span>}{!!x.ingredient_items?.length&&<details className="entry-ingredients"><summary>วัตถุดิบ ({x.ingredient_items.length})</summary><ul>{x.ingredient_items.map(item=><li key={item.id}>{item.food.name} ({stateLabels[item.food.state]}) <b>{item.grams} {item.unit||'g'}</b></li>)}</ul></details>}</div><b>{x.calories} <small>kcal</small></b><button className="icon-button" aria-label={`Delete ${x.name}`} onClick={()=>removeFood(x.id)}><X size={17}/></button></div>):<div className="empty-state"><img src="/illustrations/salad-bowl.svg" alt=""/><h3>Your first bite starts here.</h3><p>ยังไม่มีมื้ออาหารในวันนี้ เพิ่มเมนูที่คุณอร่อยได้เลย</p><button className="primary" onClick={()=>openFood()}><Plus size={17}/> Add your first meal</button></div>}
+        {entries.length?entries.map(x=><div className="entry" key={x.id}><span className="meal-icon meal-1"><Utensils size={20}/></span><div className="entry-description"><b>{x.name}</b><span>{x.meal}{x.portion_amount ? ` · ${x.portion_amount} ${x.portion_unit === 'grams' ? 'g' : 'เสิร์ฟ'}` : ''} · Protein {x.protein}g / Carbs {x.carbs}g / Fat {x.fat}g</span>{x.nutrition_source==='chatgpt_estimate'&&<span className="entry-source">ประมาณจาก ChatGPT</span>}<ExtraNutritionSummary meal={x}/>{!!x.ingredient_items?.length&&<details className="entry-ingredients"><summary>วัตถุดิบ ({x.ingredient_items.length})</summary><ul>{x.ingredient_items.map(item=><li key={item.id}>{item.food.name} ({stateLabels[item.food.state]}) <b>{item.grams} {item.unit||'g'}</b></li>)}</ul></details>}</div><b>{x.calories} <small>kcal</small></b><button className="icon-button" aria-label={`Delete ${x.name}`} onClick={()=>removeFood(x.id)}><X size={17}/></button></div>):<div className="empty-state"><img src="/illustrations/salad-bowl.svg" alt=""/><h3>Your first bite starts here.</h3><p>ยังไม่มีมื้ออาหารในวันนี้ เพิ่มเมนูที่คุณอร่อยได้เลย</p><button className="primary" onClick={()=>openFood()}><Plus size={17}/> Add your first meal</button></div>}
       </section>}
 
       {tab==='My recipes'&&<RecipeBuilder extraFoods={ingredientFoods} recipes={recipes} profiles={profiles} who={who} day={day} onSave={saveRecipe} onLog={logRecipe}/>}

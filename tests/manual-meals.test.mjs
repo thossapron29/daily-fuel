@@ -1,11 +1,8 @@
+import {moduleUrl} from './ts-module.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {readFile} from 'node:fs/promises';
-import ts from 'typescript';
 
-const source=await readFile(new URL('../lib/manual-meals.ts',import.meta.url),'utf8');
-const {outputText}=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2020}});
-const {emptyMealDraft,parseMealDraft}=await import(`data:text/javascript;base64,${Buffer.from(outputText).toString('base64')}`);
+const {emptyMealDraft,parseMealDraft}=await import(await moduleUrl('../lib/manual-meals.ts'));
 const meal={name:' ข้าวลาบหมู ',meal:'Lunch',calories:'550',protein:'30.5',carbs:'60',fat:'20'};
 
 test('meal fields begin empty and saving converts editable text to numeric nutrients',()=>{

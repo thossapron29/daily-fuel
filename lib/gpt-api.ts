@@ -1,3 +1,4 @@
+import {extraNutrientFields,parseExtraNutrition} from './nutrition-insights';
 export const APP_ORIGIN='https://daily-fuel-inky.vercel.app';
 export const MCP_RESOURCE=APP_ORIGIN+'/mcp';
 export const MCP_CALLBACK='https://chatgpt.com/connector_platform_oauth_redirect';
@@ -39,7 +40,7 @@ export function validateMealBatch(body:unknown){
  const recipients=new Set<string>();
  const entries=value.entries.map(raw=>{
   const entry=object(raw);
-  if(Object.keys(entry).some(key=>!['recipient_id','date','meal','name','calories','protein','carbs','fat','nutrition_source'].includes(key)))invalid('Unexpected meal field');
+  if(Object.keys(entry).some(key=>!['recipient_id','date','meal','name','calories','protein','carbs','fat','nutrition_source',...extraNutrientFields.map(field=>field.key)].includes(key)))invalid('Unexpected meal field');
   if(typeof entry.recipient_id!=='string'||!UUID.test(entry.recipient_id)||recipients.has(entry.recipient_id.toLowerCase()))invalid('Use one entry per authorized recipient');
   recipients.add(entry.recipient_id.toLowerCase());
   if(typeof entry.date!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(entry.date)||!Number.isFinite(Date.parse(entry.date+'T00:00:00Z'))||new Date(entry.date+'T00:00:00Z').toISOString().slice(0,10)!==entry.date)invalid('Use a real date in YYYY-MM-DD format');
@@ -49,7 +50,8 @@ export function validateMealBatch(body:unknown){
   if(typeof source!=='string'||!['chatgpt_estimate','label','provided'].includes(source))invalid('Invalid nutrition source');
   const nutrients={} as Record<'calories'|'protein'|'carbs'|'fat',number>;
   for(const key of ['calories','protein','carbs','fat'] as const){const n=entry[key];if(typeof n!=='number'||!Number.isFinite(n)||n<0||n>100000)invalid('All four nutrients must be finite nonnegative numbers');nutrients[key]=n}
-  return {recipient_id:entry.recipient_id.toLowerCase(),date:entry.date,meal:entry.meal,name:entry.name.trim(),...nutrients,nutrition_source:source};
+  let extra;try{extra=parseExtraNutrition(entry)}catch(error){invalid(error instanceof Error?error.message:'Invalid optional nutrient')}
+  return {...extra,recipient_id:entry.recipient_id.toLowerCase(),date:entry.date,meal:entry.meal,name:entry.name.trim(),...nutrients,nutrition_source:source};
  });
  return {request_id:value.request_id.toLowerCase(),entries};
 }

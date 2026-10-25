@@ -1,10 +1,11 @@
+import {moduleUrl} from './ts-module.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import ts from 'typescript';
 const encode=s=>`data:text/javascript;base64,${Buffer.from(s).toString('base64')}`;
 async function compile(path){return ts.transpileModule(await readFile(new URL(path,import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText}
-const apiURL=encode(await compile('../lib/gpt-api.ts'));
+const apiURL=await moduleUrl('../lib/gpt-api.ts');
 const serverURL=encode((await compile('../lib/gpt-server.ts')).replace("'./gpt-api'",JSON.stringify(apiURL)));
 const schemaURL=encode((await compile('../lib/gpt-openapi.ts')).replace("'./gpt-api'",JSON.stringify(apiURL)));
 const mcpSource=(await compile('../lib/mcp.ts')).replace("'./gpt-api'",JSON.stringify(apiURL)).replace("'./gpt-server'",JSON.stringify(serverURL)).replace("'./gpt-openapi'",JSON.stringify(schemaURL));

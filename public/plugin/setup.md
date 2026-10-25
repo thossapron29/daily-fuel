@@ -57,3 +57,9 @@ MCP ใช้ stateless Streamable HTTP, OAuth discovery, exact callback, issuer
 API และระบบ idempotency เดิมใช้ต่ออยู่ การบันทึกจริงสำหรับ MCP ต้องผ่านหน้า review ด้วย Supabase session ของเจ้าของรายการ จึงไม่อาศัย tool approval hints เพียงอย่างเดียว
 
 อ้างอิง: https://developers.openai.com/plugins/build/auth และ https://developers.openai.com/plugins/deploy/connect-chatgpt
+
+## น้ำตาลและโซเดียม
+
+บอกยี่ห้อและปริมาณเครื่องปรุง หรือส่งฉลากให้ ChatGPT อ่าน ประมาณโซเดียมเป็น mg และน้ำตาลรวม/น้ำตาลอิสระเป็น g แยกตามส่วนที่แต่ละคนกินได้ ตรวจตัวเลขในหน้า review ก่อนยืนยัน ถ้าไม่ทราบให้เว้นว่าง ไม่ใส่ 0 แทน และน้ำตาลรวมบนฉลากไม่ใช่น้ำตาลอิสระโดยอัตโนมัติ
+
+Dashboard แจ้งข้อมูลที่ข้ามแผน/เกณฑ์และแสดงจำนวนมื้อที่มีข้อมูล มื้อเก่าจะยังไม่มีค่าพวกนี้ ไม่มีการประมาณเติมย้อนหลังอัตโนมัติ

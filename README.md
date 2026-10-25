@@ -176,3 +176,14 @@ Vercel project `daily-fuel` in `thossapron29's projects` is linked to this publi
 The public repository excludes environment files, local agent skills, generated review screenshots, dependencies and build output. Profile defaults are generic examples; existing Supabase settings are retained via the initializer's ignore-duplicates behavior.
 
 For a future custom domain, update the Supabase Auth Site URL and add only the intended exact redirect URLs. No service-role key is needed by this app.
+
+
+### Daily nutrition check-ins
+
+`lib/nutrition-insights.ts` distinguishes macro/calorie planning targets from adult nutrient limits. Dashboard shows persistent over-plan amounts and a dismissible five-second toast once per account/profile/date/nutrient per browser tab session. Protein completion is not treated as an upper limit. Sodium uses a <2,000 mg/day adult reference; free sugar allowance uses 10% of the selected calorie target / 4 g, clearly labeled as a planning reference. Total sugars are recorded separately and are not compared with the free-sugar allowance. Reference: https://www.who.int/news-room/fact-sheets/detail/healthy-diet
+
+`supabase/extra-nutrients.sql` (remote `add_optional_meal_sugars_and_sodium`) adds nullable `sodium_mg`, `total_sugar_g`, `free_sugar_g` eaten-portion snapshots to entries, bounded finite-value checks and a free-vs-total consistency constraint. Existing rows stay NULL. Manual entry, local import, owned meal autocomplete, immutable MCP drafts, native review, commit and receipts preserve these fields; legacy REST batches continue working. Omitted/NULL optional fields have the same unknown meaning without changing old request hashes. Shared menus from another auth account remain the original macro-only projection and clear optional draft values. Ingredient/recipe calculations remain macro-only and leave the new fields unknown.
+
+The Dashboard reports coverage per nutrient (e.g. 2/6 records) and labels estimates. Unknown is never zero, and partial under-limit totals are never shown as a complete daily result. ChatGPT should use label/brand/sauce quantities first and omit uncertain optional nutrients instead of inventing zeros.
+
+Verification: `npm test`, production build, `supabase/verify-extra-nutrients.sql` with full rollback, existing MCP/Actions regression checks, and isolated browser fixtures for 375/768/1024/1440 layouts, optional validation, clearing to unknown and known zero. No real diary entries are fabricated for this feature's tests.

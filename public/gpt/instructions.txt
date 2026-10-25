@@ -22,3 +22,6 @@ Suggested starters:
 "ช่วยคิดมื้อเช้านี้แล้วบันทึกให้ทั้งคู่ ข้าวของนิวน้อยกว่าเบ้น"
 "วันนี้กินแบบนี้ ช่วยสรุป kcal กับ P/C/F ก่อนบันทึก"
 "ใช้ฉลากนี้คิดตามปริมาณที่กินจริง แล้วเพิ่มมื้อให้ฉัน"
+
+
+Optional detailed nutrients: include sodium_mg (MILLIGRAMS), total_sugar_g (grams), and free_sugar_g (grams) for each eaten portion when reliably known or explicitly agreed estimates. Free sugars include added sugars and sugars in honey, syrups, fruit juices/concentrates, but exclude intact fruit/milk sugars. A label total-sugars value is NOT automatically free sugars. Free sugars cannot exceed total sugars. Unknown optional values must be omitted/null, never invented zero. Use label data and measured sauce amounts before estimates; show the optional values, units, uncertainty and source in the summary before web confirmation. Existing meals with missing values remain unknown. Do not claim the entire day is below a limit when coverage is incomplete.

@@ -1,8 +1,9 @@
+import {extraNutrientFields,known,type ExtraNutrition} from './nutrition-insights';
 import type {Entry} from './data';
 import type {MealDraft} from './manual-meals';
 import type {Nutrients} from './recipes';
 
-export type MealSuggestion = Nutrients & {key:string;name:string;profile_id:string;date:string|null;shared?:boolean;source_name?:string};
+export type MealSuggestion = Nutrients & ExtraNutrition & {key:string;name:string;profile_id:string;date:string|null;nutrition_source?:Entry['nutrition_source'];shared?:boolean;source_name?:string};
 export type SharedMenu = MealSuggestion & {shared:true;source_name:string;date:null};
 const nutrientKeys=['calories','protein','carbs','fat'] as const;
 const normalize=(value:string)=>value.normalize('NFKC').trim().replace(/\s+/g,' ').toLocaleLowerCase('th');
@@ -22,10 +23,11 @@ export function mealSuggestions(entries:Entry[],who:string,profileIds:string[],q
   const counts=new Map<string,number>();
   const suggestions:MealSuggestion[]=[];
   for(const {entry} of sorted){
-    const key=JSON.stringify([entry.profile_id,normalize(entry.name),...nutrientKeys.map(key=>entry[key])]);
+    const key=JSON.stringify([entry.profile_id,normalize(entry.name),...nutrientKeys.map(key=>entry[key]),...extraNutrientFields.map(({key})=>entry[key]??null)]);
     if(seen.has(key)||(counts.get(entry.profile_id)||0)>=5)continue;
     seen.add(key);counts.set(entry.profile_id,(counts.get(entry.profile_id)||0)+1);
-    suggestions.push({key,name:entry.name.trim(),profile_id:entry.profile_id,date:entry.date,calories:entry.calories,protein:entry.protein,carbs:entry.carbs,fat:entry.fat});
+    const extra=Object.fromEntries(extraNutrientFields.filter(({key})=>known(entry[key])).map(({key})=>[key,entry[key]]));
+    suggestions.push({...extra,...(entry.nutrition_source?{nutrition_source:entry.nutrition_source}:{}),key,name:entry.name.trim(),profile_id:entry.profile_id,date:entry.date,calories:entry.calories,protein:entry.protein,carbs:entry.carbs,fat:entry.fat});
   }
   suggestions.sort((a,b)=>people.indexOf(a.profile_id)-people.indexOf(b.profile_id));
   if(includeBoth){
@@ -54,5 +56,8 @@ export function parseSharedMenus(rows:unknown):SharedMenu[]{
 
 // Reusing nutrition creates a new manual meal, retaining the destination's meal slot.
 export function applyMealSuggestion(draft:MealDraft,suggestion:MealSuggestion):MealDraft {
-  return {...draft,name:suggestion.name,calories:String(suggestion.calories),protein:String(suggestion.protein),carbs:String(suggestion.carbs),fat:String(suggestion.fat)};
+  const extra:Partial<Record<import('./nutrition-insights').ExtraKey,string>>={};
+  for(const {key} of extraNutrientFields)if(known(suggestion[key]))extra[key]=String(suggestion[key]);else if(key in draft)extra[key]='';
+  const source=suggestion.nutrition_source?{nutrition_source:suggestion.nutrition_source}:draft.nutrition_source?{nutrition_source:'manual' as const}:{};
+  return {...draft,...extra,...source,name:suggestion.name,calories:String(suggestion.calories),protein:String(suggestion.protein),carbs:String(suggestion.carbs),fat:String(suggestion.fat)};
 }
