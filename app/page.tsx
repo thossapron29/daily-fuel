@@ -1,11 +1,12 @@
 'use client';
-import {useEffect,useState} from 'react';
+import {useCallback,useEffect,useState} from 'react';
 import Workspace from './workspace';
 import {PantryContext} from './pantry-context';
 import {buildPantryItem,pantryToRow,pantryFromRow,normalizeBarcode,type PantryItem,type ReadyPantryItem,type PantryDraft,type BarcodeCandidate} from '../lib/pantry';
 import {defaultProfiles,Profile,Entry,Recipe,today,uid,getSupabase} from '../lib/data';
 import {validateNutritionProfile} from '../lib/nutrition';
 import {emptyMealDraft,parseMealDraft} from '../lib/manual-meals';
+import {parseSharedMenus,type SharedMenu} from '../lib/meal-history';
 import {parseLocalBackup, type LocalBackup} from '../lib/local-backup';
 import {buildIngredientMeal, type IngredientMealDraft, buildRecipe, portionNutrition, validateRecipeLog, type RecipeDraft, type RecipeLog} from '../lib/recipes';
 const db=getSupabase();
@@ -101,6 +102,13 @@ export default function Home(){
   const {error}=await db.auth.signOut();if(error)setError(error.message);
  }
  const dbid=(slot:string)=>(profiles.find(x=>x.id===slot) as Profile&{dbid?:string})?.dbid;
+ const loadSharedMenus=useCallback(async(query:string):Promise<SharedMenu[]>=>{
+  if(!db)return [];
+  if(!account)throw new Error('กรุณาเข้าสู่ระบบก่อนดูเมนูของทั้งคู่');
+  const {data,error}=await db.rpc('shared_menu_options',{search_query:query});
+  if(error)throw new Error('โหลดเมนูอีกบัญชีไม่สำเร็จ กรุณาลองอีกครั้ง');
+  return parseSharedMenus(data);
+ },[account]);
  async function addFood(){
   setError('');
   try{
@@ -214,5 +222,5 @@ export default function Home(){
  }
 
 
- return <PantryContext.Provider value={{items:pantry,save:savePantry,archive:archivePantry,lookup:lookupBarcode}}><Workspace account={account} cloud={!!db} email={email} password={password} error={error} setEmail={setEmail} setPassword={setPassword} setError={setError} auth={auth} authPending={authPending} authMessage={authMessage} signOut={signOut} localImport={localBackup?{pantry:localBackup.pantry.length,profiles:localBackup.profiles.length,recipes:localBackup.recipes.length,entries:localBackup.entries.length,weights:localBackup.weights.length}:null} importing={importing} importLocalData={importLocalData} cloudNotice={cloudNotice} profiles={profiles} who={who} setWho={setWho} tab={tab} setTab={setTab} day={day} setDay={setDay} entries={list} mealHistory={entries} recipes={recipes} weights={weights} food={food} setFood={setFood} weight={weight} setWeight={setWeight} addFood={addFood} addIngredientMeal={addIngredientMeal} ingredientFoods={entries.flatMap(entry=>(entry.ingredient_items||[]).map(item=>item.food))} removeFood={removeFood} saveRecipe={saveRecipe} logRecipe={logRecipe} saveProfile={saveProfile} addWeight={addWeight}/></PantryContext.Provider>
+ return <PantryContext.Provider value={{items:pantry,save:savePantry,archive:archivePantry,lookup:lookupBarcode}}><Workspace account={account} cloud={!!db} email={email} password={password} error={error} setEmail={setEmail} setPassword={setPassword} setError={setError} auth={auth} authPending={authPending} authMessage={authMessage} signOut={signOut} localImport={localBackup?{pantry:localBackup.pantry.length,profiles:localBackup.profiles.length,recipes:localBackup.recipes.length,entries:localBackup.entries.length,weights:localBackup.weights.length}:null} importing={importing} importLocalData={importLocalData} cloudNotice={cloudNotice} profiles={profiles} who={who} setWho={setWho} tab={tab} setTab={setTab} day={day} setDay={setDay} entries={list} mealHistory={entries} loadSharedMenus={loadSharedMenus} recipes={recipes} weights={weights} food={food} setFood={setFood} weight={weight} setWeight={setWeight} addFood={addFood} addIngredientMeal={addIngredientMeal} ingredientFoods={entries.flatMap(entry=>(entry.ingredient_items||[]).map(item=>item.food))} removeFood={removeFood} saveRecipe={saveRecipe} logRecipe={logRecipe} saveProfile={saveProfile} addWeight={addWeight}/></PantryContext.Provider>
 }

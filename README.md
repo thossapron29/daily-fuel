@@ -12,7 +12,7 @@ Personal nutrition journal for New & Ben, with quick calorie/macro entry and sep
 - Organization: **thossapron29**
 - Region: **Singapore** (`ap-southeast-1`)
 - Dashboard: https://supabase.com/dashboard/project/qkyqiufpluxfgyjhtqzr
-- The database was bootstrapped with remote `init_daily_fuel`, then updated with `add_one_off_meal_ingredients` (`supabase/ingredient-meals.sql`) and `add_shared_pantry` (`supabase/pantry.sql`), followed by `add_pending_pantry_nutrition` (`supabase/pending-pantry.sql`). `supabase/schema.sql` includes all updates for fresh projects; do not rerun the bootstrap over an existing installation.
+- The database was bootstrapped with remote `init_daily_fuel`, then updated with `add_one_off_meal_ingredients` (`supabase/ingredient-meals.sql`) and `add_shared_pantry` (`supabase/pantry.sql`), followed by `add_pending_pantry_nutrition` (`supabase/pending-pantry.sql`). `supabase/schema.sql` includes all updates, including `supabase/shared-menus.sql` (remote `add_partner_menu_lookup` and `explicit_menu_link_deny_policy`), for fresh projects; do not rerun the bootstrap over an existing installation.
 - `.env.local` contains the project URL and public publishable key. It is ignored by Git. No service-role/secret key is used in the browser.
 - Auth Site URL is `https://daily-fuel-inky.vercel.app`. Exact redirect URLs allow the production root (with and without a trailing slash) and `http://localhost:3001` (with and without a trailing slash). Email confirmation remains enabled.
 
@@ -45,7 +45,7 @@ The import includes both profiles and goals, recipes (including ingredient/sourc
 - `weights`: per-profile/date weight history.
 - `import_receipts`: per-account import fingerprints for safe retries.
 
-Every table has RLS enabled. Only authenticated users can read/write their own household. Public/anonymous roles have no table access. Composite foreign keys prevent linking an entry to another owner's profile or recipe. `import_local_data` is a security-invoker function restricted to authenticated callers; it does not bypass RLS. One shared app login means both people can view and edit both profiles.
+Every table has RLS enabled. Authenticated users can read/write only their own diary, profiles and household records. The restricted linked-menu RPC below is the sole exception for a read-only name/nutrient projection; it grants no direct diary/profile access. Public/anonymous roles have no table access. Composite foreign keys prevent linking an entry to another owner's profile or recipe. `import_local_data` is a security-invoker function restricted to authenticated callers; it does not bypass RLS. One shared app login means both people can view and edit both profiles.
 
 ## Nutrition calculations
 
@@ -69,11 +69,21 @@ The blue calorie field is the primary visual anchor, with three macro fields und
 
 ## Reuse meal history
 
-The food-name field is an accessible autocomplete with recent meals on focus and live name matching while typing. It uses all loaded dates, independently of the Dashboard's selected date. By default it shows up to five recent distinct options for the active profile; **ดูเมนูของทั้งคู่** includes up to five per profile with the active profile first. This means both profile slots within the signed-in account, using the existing owner-isolated data; it does not connect separate login accounts.
+The food-name field is an accessible autocomplete with recent meals on focus and live name matching while typing. It uses all loaded dates, independently of the Dashboard's selected date. By default it shows up to five recent distinct options for the active profile; **ดูเมนูของทั้งคู่** includes up to five per profile with the active profile first. Both profile slots in this account remain available. Explicitly linked accounts also contribute a narrow menu projection when this switch is enabled; partner options carry an **อีกบัญชี** badge and no consumption dates.
 
 Suggestions show the source profile, last date, kcal and P/C/F. Repeated rows collapse only when normalized name, profile and all four nutrient values match. Different portions with the same name stay separate; no averaging or portion conversion is applied. Same-date recency uses the last appended row because legacy entries have no creation timestamp.
 
-Selecting an option copies only the food name and four editable nutrient values, retaining the destination profile/date/meal. Saving uses the existing manual entry flow and creates a new snapshot; it does not mutate the source or copy recipe/ingredient metadata. Switching profiles clears the unsaved meal draft. Arrow keys/Enter choose suggestions, Escape dismisses the popup first, and users can type a new name with no matching history. No new database table, query or migration is required.
+Selecting an option copies only the food name and four editable nutrient values, retaining the destination profile/date/meal. Saving uses the existing manual entry flow and creates a new snapshot; it does not mutate the source or copy recipe/ingredient metadata. Switching profiles clears the unsaved meal draft. Arrow keys/Enter choose suggestions, Escape dismisses the popup first, and users can type a new name with no matching history. Own-account suggestions use already loaded history; linked-account suggestions use the restricted RPC described below.
+
+## Linked accounts: menus only
+
+`supabase/shared-menus.sql` adds a private administrator-managed `dailyfuel_private.menu_links` table and an authenticated `shared_menu_options(search_query)` RPC. Only the two user-authorized accounts were linked in the live database; account identifiers are kept out of public source. Account-link rows have no API table grants and an explicit deny policy. An account cannot add its own partner through the app or RPC.
+
+The public RPC is security-invoker and delegates to a private, read-only security-definer function with a fixed empty search path, an `auth.uid()` guard, and a server-side partner relationship check. This deliberate privilege boundary returns only stable menu keys, source profile name/slot, food names, kcal and P/C/F. It returns no owner IDs, diary IDs, dates, meal slots, recipe/ingredient metadata, weights or goals. Existing owner-only policies on entries/profiles/weights remain unchanged. Unlinked accounts get no partner results; anonymous calls cannot execute the RPC. Removing a link immediately removes future partner lookup access, while meals already saved by the recipient remain their own snapshots.
+
+Partner matching happens on the server with literal substring search, deduplication and at most five distinct options per source profile. The autocomplete debounces requests, ignores stale responses, refreshes on opening the shared list, and offers retry on lookup failure. These options exist only in dialog memory and are never merged into journal entries or local backups. Selecting a partner option copies only editable name/nutrients; saving uses the recipient's current account/profile/date/meal and the usual owner-scoped insert.
+
+`supabase/verify-shared-menus.sql` verifies projection fields, exact duplicates versus different portions, linked lookup in both directions, isolated diaries/goals, source preservation after copying, outsider/anonymous denial, link-write denial and revocation. All test users and entries are rolled back. The live accounts were separately checked with read-only authenticated-role queries: partner menu lookup succeeds while direct foreign diary reads remain zero.
 
 ## Existing Recipe Builder
 

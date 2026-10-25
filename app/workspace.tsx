@@ -9,6 +9,7 @@ import RecipeBuilder from './recipe-builder';
 import MealDialog from './meal-dialog';
 import type {MealDraft} from '../lib/manual-meals';
 import {emptyMealDraft} from '../lib/manual-meals';
+import type {SharedMenu} from '../lib/meal-history';
 import Pantry from './pantry';
 import {stateLabels, type Food, type IngredientMealDraft, type RecipeDraft, type RecipeLog} from '../lib/recipes';
 
@@ -21,7 +22,7 @@ type Props = {
   localImport:{pantry:number;profiles:number;recipes:number;entries:number;weights:number}|null; importing:boolean; importLocalData:()=>Promise<void>; cloudNotice:string;
   profiles:Profile[]; who:string; setWho:Setter<string>;
   tab:string; setTab:Setter<string>; day:string; setDay:Setter<string>;
-  entries:Entry[]; mealHistory:Entry[]; recipes:Recipe[]; weights:Weight[];
+  entries:Entry[]; mealHistory:Entry[]; loadSharedMenus:(query:string)=>Promise<SharedMenu[]>; recipes:Recipe[]; weights:Weight[];
   food:MealDraft; setFood:Setter<MealDraft>;
   weight:number; setWeight:Setter<number>;
   addIngredientMeal:(draft:IngredientMealDraft)=>Promise<boolean>; ingredientFoods:Food[]; addFood:()=>Promise<boolean>; removeFood:(id:string)=>Promise<void>; saveRecipe:(draft:RecipeDraft)=>Promise<Recipe|null>; logRecipe:(recipe:Recipe,log:RecipeLog)=>Promise<boolean>;
@@ -41,7 +42,7 @@ const meals = [
 
 export default function Workspace(props:Props) {
   const {account, cloud, email, password, error, setEmail, setPassword, setError, auth, authPending, authMessage, signOut, localImport, importing, importLocalData, cloudNotice,
-    profiles, who, setWho, tab, setTab, day, setDay, entries, mealHistory, recipes, weights,
+    profiles, who, setWho, tab, setTab, day, setDay, entries, mealHistory, loadSharedMenus, recipes, weights,
     food, setFood, weight, setWeight, addFood, addIngredientMeal, ingredientFoods, removeFood, saveRecipe, logRecipe, saveProfile, addWeight} = props;
   const [foodOpen, setFoodOpen] = useState(false);
   const [mealMessage,setMealMessage]=useState('');
@@ -161,7 +162,7 @@ export default function Workspace(props:Props) {
       <footer><Brand/><span>A little care goes a long way.</span><div><span className="sync-dot"/>{cloud?'Connected':'Saved on this device'}{cloud&&<button className="textbutton" onClick={signOut}><LogOut size={13}/> Sign out</button>}</div></footer>
     </main>
 
-    {foodOpen&&<MealDialog history={mealHistory} recipes={recipes} profiles={profiles} who={who} day={day} food={food} setFood={setFood} error={error} addFood={addFood} onIngredientMeal={addIngredientMeal} extraFoods={ingredientFoods} onLog={logRecipe} onClose={()=>setFoodOpen(false)} onOpenRecipes={()=>{setFoodOpen(false);setTab('My recipes')}} onSuccess={message=>{setMealMessage(message);setFoodOpen(false)}}/>}
+    {foodOpen&&<MealDialog loadSharedMenus={loadSharedMenus} history={mealHistory} recipes={recipes} profiles={profiles} who={who} day={day} food={food} setFood={setFood} error={error} addFood={addFood} onIngredientMeal={addIngredientMeal} extraFoods={ingredientFoods} onLog={logRecipe} onClose={()=>setFoodOpen(false)} onOpenRecipes={()=>{setFoodOpen(false);setTab('My recipes')}} onSuccess={message=>{setMealMessage(message);setFoodOpen(false)}}/>}
   </div>;
 }
 

@@ -4,7 +4,7 @@ import {readFile} from 'node:fs/promises';
 import ts from 'typescript';
 const source=await readFile(new URL('../lib/meal-history.ts',import.meta.url),'utf8');
 const {outputText}=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2020}});
-const {mealSuggestions,applyMealSuggestion}=await import(`data:text/javascript;base64,${Buffer.from(outputText).toString('base64')}`);
+const {mealSuggestions,applyMealSuggestion,parseSharedMenus}=await import(`data:text/javascript;base64,${Buffer.from(outputText).toString('base64')}`);
 const meal=(id,patch={})=>({id,profile_id:'new',date:'2026-10-23',meal:'Lunch',name:'ข้าวลาบหมู',calories:550,protein:30.5,carbs:60,fat:20,...patch});
 const people=['new','ben'];
 
@@ -40,4 +40,25 @@ test('missing/invalid nutrients are excluded, explicit zeros survive and selecti
   filled.calories='150.5';filled.name='มื้อที่ปรับแล้ว';
   assert.deepEqual(good,original);assert.equal(draft.name,'');
   assert.deepEqual(Object.keys(filled).sort(),['calories','carbs','fat','meal','name','protein']);
+});
+
+test('linked partner menu projection stays separate from own history and never copies foreign metadata',()=>{
+  const shared=parseSharedMenus([{menu_key:'partner-1',profile_slot:'ben',profile_name:'เบ้น',name:'ข้าวลาบหมู',calories:650,protein:35,carbs:80,fat:20,owner_id:'private',date:'2026-10-25',recipe_id:'private-recipe'}]);
+  assert.equal(shared[0].date,null);assert.equal(shared[0].profile_id,'shared:ben');
+  assert.equal(shared[0].owner_id,undefined);assert.equal(shared[0].recipe_id,undefined);
+  const entries=[meal('own'),meal('local-ben',{profile_id:'ben',calories:600})];
+  assert.equal(mealSuggestions(entries,'new',people,'ลาบ',false,shared).length,1);
+  const result=mealSuggestions(entries,'new',people,'ลาบ',true,shared);
+  assert.deepEqual(result.map(x=>x.profile_id),['new','ben','shared:ben']);
+  assert.deepEqual(mealSuggestions([],'new',people,'ลาบ',true,shared),shared);
+  assert.deepEqual(mealSuggestions([],'new',people,'ไม่ตรง',true,shared),[]);
+  const draft={name:'',meal:'Snack',calories:'',protein:'',carbs:'',fat:''};
+  assert.deepEqual(applyMealSuggestion(draft,shared[0]),{name:'ข้าวลาบหมู',meal:'Snack',calories:'650',protein:'35',carbs:'80',fat:'20'});
+  assert.deepEqual(entries.map(x=>x.calories),[550,600]);
+});
+test('partner projection rejects unknown profiles and incomplete nutrition, and retains explicit zero',()=>{
+  const row={menu_key:'p',profile_slot:'new',profile_name:'นิว',name:'Water',calories:0,protein:0,carbs:0,fat:0};
+  assert.equal(parseSharedMenus([row])[0].calories,0);
+  for(const patch of [{profile_slot:'stranger'},{calories:null},{protein:-1},{carbs:Infinity},{name:''},{profile_name:''}])assert.throws(()=>parseSharedMenus([{...row,...patch}]));
+  assert.throws(()=>parseSharedMenus(null));
 });

@@ -2,13 +2,14 @@ import type {Entry} from './data';
 import type {MealDraft} from './manual-meals';
 import type {Nutrients} from './recipes';
 
-export type MealSuggestion = Nutrients & {key:string;name:string;profile_id:string;date:string};
+export type MealSuggestion = Nutrients & {key:string;name:string;profile_id:string;date:string|null;shared?:boolean;source_name?:string};
+export type SharedMenu = MealSuggestion & {shared:true;source_name:string;date:null};
 const nutrientKeys=['calories','protein','carbs','fat'] as const;
 const normalize=(value:string)=>value.normalize('NFKC').trim().replace(/\s+/g,' ').toLocaleLowerCase('th');
 
 // Use all loaded dates, keep different portions separate, and never average nutrients.
 // Array position breaks same-date ties for newly appended entries (legacy rows have no timestamp).
-export function mealSuggestions(entries:Entry[],who:string,profileIds:string[],query:string,includeBoth=false):MealSuggestion[]{
+export function mealSuggestions(entries:Entry[],who:string,profileIds:string[],query:string,includeBoth=false,sharedMenus:SharedMenu[]=[]):MealSuggestion[]{
   const search=normalize(query);
   const people=[who,...profileIds.filter(id=>id!==who)];
   const sorted=entries.map((entry,index)=>({entry,index})).filter(({entry})=>
@@ -26,7 +27,29 @@ export function mealSuggestions(entries:Entry[],who:string,profileIds:string[],q
     seen.add(key);counts.set(entry.profile_id,(counts.get(entry.profile_id)||0)+1);
     suggestions.push({key,name:entry.name.trim(),profile_id:entry.profile_id,date:entry.date,calories:entry.calories,protein:entry.protein,carbs:entry.carbs,fat:entry.fat});
   }
-  return suggestions.sort((a,b)=>people.indexOf(a.profile_id)-people.indexOf(b.profile_id));
+  suggestions.sort((a,b)=>people.indexOf(a.profile_id)-people.indexOf(b.profile_id));
+  if(includeBoth){
+    const shared=sharedMenus.filter(menu=>normalize(menu.name).includes(search)).sort((a,b)=>people.indexOf(a.profile_id.slice(7))-people.indexOf(b.profile_id.slice(7)));
+    const sharedKeys=new Set<string>();
+    for(const menu of shared){
+      const key=JSON.stringify([menu.profile_id,normalize(menu.name),...nutrientKeys.map(key=>menu[key])]);
+      if(sharedKeys.has(key))continue;
+      sharedKeys.add(key);suggestions.push(menu);
+    }
+  }
+  return suggestions;
+}
+
+// Accept only the limited RPC projection. Partner dates, diary IDs and owner IDs
+// never enter the autocomplete model, draft, Dashboard or local backup.
+export function parseSharedMenus(rows:unknown):SharedMenu[]{
+  if(!Array.isArray(rows))throw new Error('ข้อมูลเมนูที่แชร์มีรูปแบบไม่ถูกต้อง');
+  return rows.map(row=>{
+    if(!row||typeof row!=='object'||!['new','ben'].includes(row.profile_slot)||
+      typeof row.menu_key!=='string'||!row.menu_key||typeof row.profile_name!=='string'||!row.profile_name.trim()||
+      typeof row.name!=='string'||!row.name.trim()||!nutrientKeys.every(key=>Number.isFinite(row[key])&&row[key]>=0))throw new Error('ข้อมูลเมนูที่แชร์มีรูปแบบไม่ถูกต้อง');
+    return {key:`shared:${row.menu_key}`,profile_id:`shared:${row.profile_slot}`,name:row.name.trim(),source_name:row.profile_name.trim(),date:null,shared:true,calories:row.calories,protein:row.protein,carbs:row.carbs,fat:row.fat};
+  });
 }
 
 // Reusing nutrition creates a new manual meal, retaining the destination's meal slot.
