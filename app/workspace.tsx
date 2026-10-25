@@ -8,6 +8,7 @@ import NutritionSettings from './nutrition-settings';
 import RecipeBuilder from './recipe-builder';
 import MealDialog from './meal-dialog';
 import type {MealDraft} from '../lib/manual-meals';
+import {emptyMealDraft} from '../lib/manual-meals';
 import Pantry from './pantry';
 import {stateLabels, type Food, type IngredientMealDraft, type RecipeDraft, type RecipeLog} from '../lib/recipes';
 
@@ -20,7 +21,7 @@ type Props = {
   localImport:{pantry:number;profiles:number;recipes:number;entries:number;weights:number}|null; importing:boolean; importLocalData:()=>Promise<void>; cloudNotice:string;
   profiles:Profile[]; who:string; setWho:Setter<string>;
   tab:string; setTab:Setter<string>; day:string; setDay:Setter<string>;
-  entries:Entry[]; recipes:Recipe[]; weights:Weight[];
+  entries:Entry[]; mealHistory:Entry[]; recipes:Recipe[]; weights:Weight[];
   food:MealDraft; setFood:Setter<MealDraft>;
   weight:number; setWeight:Setter<number>;
   addIngredientMeal:(draft:IngredientMealDraft)=>Promise<boolean>; ingredientFoods:Food[]; addFood:()=>Promise<boolean>; removeFood:(id:string)=>Promise<void>; saveRecipe:(draft:RecipeDraft)=>Promise<Recipe|null>; logRecipe:(recipe:Recipe,log:RecipeLog)=>Promise<boolean>;
@@ -40,7 +41,7 @@ const meals = [
 
 export default function Workspace(props:Props) {
   const {account, cloud, email, password, error, setEmail, setPassword, setError, auth, authPending, authMessage, signOut, localImport, importing, importLocalData, cloudNotice,
-    profiles, who, setWho, tab, setTab, day, setDay, entries, recipes, weights,
+    profiles, who, setWho, tab, setTab, day, setDay, entries, mealHistory, recipes, weights,
     food, setFood, weight, setWeight, addFood, addIngredientMeal, ingredientFoods, removeFood, saveRecipe, logRecipe, saveProfile, addWeight} = props;
   const [foodOpen, setFoodOpen] = useState(false);
   const [mealMessage,setMealMessage]=useState('');
@@ -82,7 +83,7 @@ export default function Workspace(props:Props) {
       <nav aria-label="Main navigation">{navigation.map(({name,icon:Icon})=><button key={name} className={tab===name?'selected':''} aria-current={tab===name?'page':undefined} onClick={()=>{setMealMessage('');setTab(name)}}><Icon size={17}/><span>{name}</span></button>)}</nav>
       <div className="top-actions">
         <button className={'icon-button settings-button '+(tab==='Settings'?'active':'')} aria-label="Settings" onClick={()=>setTab('Settings')}><Settings size={20}/></button><span className="top-divider"/>
-        <div className="profile-switch" aria-label="Select profile">{profiles.map(profile=><button key={profile.id} aria-label={profile.name} className={who===profile.id?'chosen':''} aria-pressed={who===profile.id} onClick={()=>{setWho(profile.id)}}><Avatar ben={profile.id==='ben'}/><span>{profile.name}</span>{who===profile.id&&<Check size={12}/>}</button>)}</div>
+        <div className="profile-switch" aria-label="Select profile">{profiles.map(profile=><button key={profile.id} aria-label={profile.name} className={who===profile.id?'chosen':''} aria-pressed={who===profile.id} onClick={()=>{if(who!==profile.id)setFood(emptyMealDraft());setWho(profile.id)}}><Avatar ben={profile.id==='ben'}/><span>{profile.name}</span>{who===profile.id&&<Check size={12}/>}</button>)}</div>
       </div>
     </header>
 
@@ -160,7 +161,7 @@ export default function Workspace(props:Props) {
       <footer><Brand/><span>A little care goes a long way.</span><div><span className="sync-dot"/>{cloud?'Connected':'Saved on this device'}{cloud&&<button className="textbutton" onClick={signOut}><LogOut size={13}/> Sign out</button>}</div></footer>
     </main>
 
-    {foodOpen&&<MealDialog recipes={recipes} profiles={profiles} who={who} day={day} food={food} setFood={setFood} error={error} addFood={addFood} onIngredientMeal={addIngredientMeal} extraFoods={ingredientFoods} onLog={logRecipe} onClose={()=>setFoodOpen(false)} onOpenRecipes={()=>{setFoodOpen(false);setTab('My recipes')}} onSuccess={message=>{setMealMessage(message);setFoodOpen(false)}}/>}
+    {foodOpen&&<MealDialog history={mealHistory} recipes={recipes} profiles={profiles} who={who} day={day} food={food} setFood={setFood} error={error} addFood={addFood} onIngredientMeal={addIngredientMeal} extraFoods={ingredientFoods} onLog={logRecipe} onClose={()=>setFoodOpen(false)} onOpenRecipes={()=>{setFoodOpen(false);setTab('My recipes')}} onSuccess={message=>{setMealMessage(message);setFoodOpen(false)}}/>}
   </div>;
 }
 

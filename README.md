@@ -67,6 +67,14 @@ Macro grams use the selected calorie goal, at 4 kcal/g for protein/carbohydrates
 
 The blue calorie field is the primary visual anchor, with three macro fields underneath and one butter-yellow save button. Ingredient calculation is under **วิธีบันทึกเพิ่มเติม**. Existing saved recipes are available there when present; the recipe tab and recipe-creation prompt are removed from main navigation/Dashboard. Existing recipe data is retained.
 
+## Reuse meal history
+
+The food-name field is an accessible autocomplete with recent meals on focus and live name matching while typing. It uses all loaded dates, independently of the Dashboard's selected date. By default it shows up to five recent distinct options for the active profile; **ดูเมนูของทั้งคู่** includes up to five per profile with the active profile first. This means both profile slots within the signed-in account, using the existing owner-isolated data; it does not connect separate login accounts.
+
+Suggestions show the source profile, last date, kcal and P/C/F. Repeated rows collapse only when normalized name, profile and all four nutrient values match. Different portions with the same name stay separate; no averaging or portion conversion is applied. Same-date recency uses the last appended row because legacy entries have no creation timestamp.
+
+Selecting an option copies only the food name and four editable nutrient values, retaining the destination profile/date/meal. Saving uses the existing manual entry flow and creates a new snapshot; it does not mutate the source or copy recipe/ingredient metadata. Switching profiles clears the unsaved meal draft. Arrow keys/Enter choose suggestions, Escape dismisses the popup first, and users can type a new name with no matching history. No new database table, query or migration is required.
+
 ## Existing Recipe Builder
 
 The cookbook starts with saved recipes and a create button. Creating or editing a recipe has three steps: ingredients for the full batch, name/servings (and optional measured cooked yield), then review/save. Search and select an ingredient, choose its weighed state and enter grams; source details are available in a disclosure. Switching state selects a different source record, not an invented raw-to-cooked weight conversion. Nutrition scales from per-100g source values; the source energy field is preserved rather than reconstructed using 4/4/9.

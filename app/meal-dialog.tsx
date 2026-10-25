@@ -4,15 +4,18 @@ import {useEffect, useRef, useState, type Dispatch, type SetStateAction} from 'r
 import {ArrowLeft, ArrowRight, BookOpen, ChevronDown, Plus, X, Utensils} from 'lucide-react';
 import type {Profile} from '../lib/nutrition';
 import type {MealDraft} from '../lib/manual-meals';
+import type {Entry} from '../lib/data';
+import {applyMealSuggestion} from '../lib/meal-history';
+import MealNameAutocomplete from './meal-name-autocomplete';
 import type {Recipe, RecipeLog, IngredientMealDraft, Food} from '../lib/recipes';
 import {RecipePortionForm} from './recipe-portions';
 import {formatNumber} from './ingredient-editor';
 import IngredientMealForm from './ingredient-meal-form';
 
-type Props={recipes:Recipe[];profiles:Profile[];who:string;day:string;food:MealDraft;setFood:Dispatch<SetStateAction<MealDraft>>;error:string;addFood:()=>Promise<boolean>;onIngredientMeal:(draft:IngredientMealDraft)=>Promise<boolean>;extraFoods:Food[];onLog:(recipe:Recipe,log:RecipeLog)=>Promise<boolean>;onOpenRecipes:()=>void;onClose:()=>void;onSuccess:(message:string)=>void};
+type Props={history:Entry[];recipes:Recipe[];profiles:Profile[];who:string;day:string;food:MealDraft;setFood:Dispatch<SetStateAction<MealDraft>>;error:string;addFood:()=>Promise<boolean>;onIngredientMeal:(draft:IngredientMealDraft)=>Promise<boolean>;extraFoods:Food[];onLog:(recipe:Recipe,log:RecipeLog)=>Promise<boolean>;onOpenRecipes:()=>void;onClose:()=>void;onSuccess:(message:string)=>void};
 const nutrients=[{key:'protein',label:'โปรตีน',short:'P'},{key:'carbs',label:'คาร์บ',short:'C'},{key:'fat',label:'ไขมัน',short:'F'}] as const;
 
-export default function MealDialog({recipes,profiles,who,day,food,setFood,error,addFood,onIngredientMeal,extraFoods,onLog,onOpenRecipes,onClose,onSuccess}:Props) {
+export default function MealDialog({history,recipes,profiles,who,day,food,setFood,error,addFood,onIngredientMeal,extraFoods,onLog,onOpenRecipes,onClose,onSuccess}:Props) {
   const dialog=useRef<HTMLDialogElement>(null);
   const nameInput=useRef<HTMLInputElement>(null);
   const [selected,setSelected]=useState<string|null>(null);
@@ -44,7 +47,7 @@ export default function MealDialog({recipes,profiles,who,day,food,setFood,error,
       }}>
         <fieldset disabled={saving} className="quick-meal-fields">
           <div className="formgrid quick-meal-basics">
-            <label>ชื่ออาหาร<input ref={nameInput} required placeholder="เช่น ข้าวกับลาบหมู" value={food.name} onChange={event=>setFood(current=>({...current,name:event.target.value}))}/></label>
+            <MealNameAutocomplete value={food.name} history={history} profiles={profiles} who={who} inputRef={nameInput} onChange={name=>setFood(current=>({...current,name}))} onPick={suggestion=>setFood(current=>applyMealSuggestion(current,suggestion))}/>
             <label>มื้ออาหาร<select value={food.meal} onChange={event=>setFood(current=>({...current,meal:event.target.value}))}>{['Breakfast','Lunch','Dinner','Snack'].map(meal=><option key={meal}>{meal}</option>)}</select></label>
           </div>
           <div className="quick-nutrition-heading"><h3>โภชนาการที่กินจริง</h3><p id="meal-nutrition-help">ใส่ยอดรวมของมื้อนี้ จากฉลากหรือที่คำนวณไว้แล้ว</p></div>
