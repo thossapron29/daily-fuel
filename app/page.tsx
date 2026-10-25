@@ -59,6 +59,13 @@ export default function Home(){
   })();
   return()=>{cancelled=true};
  },[account,reloadVersion]);
+ useEffect(()=>{
+  if(!db||!account)return;
+  let last=0;
+  const refresh=()=>{if(document.visibilityState!=='visible'||Date.now()-last<5000)return;last=Date.now();setReloadVersion(value=>value+1)};
+  window.addEventListener('focus',refresh);document.addEventListener('visibilitychange',refresh);
+  return()=>{window.removeEventListener('focus',refresh);document.removeEventListener('visibilitychange',refresh)};
+ },[account]);
  async function savePantry(draft:PantryDraft):Promise<ReadyPantryItem>{
   const item=buildPantryItem(draft,draft.id||uid());
   if(draft.id&&!pantry.some(food=>food.id===draft.id))throw new Error('ไม่พบรายการเดิม กรุณาเปิดตู้ใหม่');
