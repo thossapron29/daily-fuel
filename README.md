@@ -1,6 +1,6 @@
 # Daily Fuel
 
-Personal nutrition journal for New & Ben, with a shared cookbook and separate daily tracking.
+Personal nutrition journal for New & Ben, with quick calorie/macro entry and separate daily tracking.
 
 - Live app: https://daily-fuel-inky.vercel.app
 - Public source: https://github.com/thossapron29/daily-fuel
@@ -61,7 +61,13 @@ Maintenance uses TDEE; Cutting starts at TDEE −300; Bulking starts at TDEE +20
 
 Macro grams use the selected calorie goal, at 4 kcal/g for protein/carbohydrates and 9 kcal/g for fat. Dashboard and Settings share the same helper. Display rounding can cause a small energy difference. Both initial profiles use generic example body data. Update them before using personal targets. Saved Supabase profiles are retained during updates.
 
-## Recipe Builder
+## Quick meal logging
+
+**Add a meal** opens nutrition entry directly: food name, meal, total kcal and protein/carbs/fat for the selected profile/date. Numeric drafts stay as editable strings until submit so clearing a field stays empty; explicit zero is valid, while blank/negative/non-finite nutrients cannot be saved. Stored diary values remain numbers and feed the existing Dashboard totals. The app does not call ChatGPT or calculate from a text description.
+
+The blue calorie field is the primary visual anchor, with three macro fields underneath and one butter-yellow save button. Ingredient calculation is under **วิธีบันทึกเพิ่มเติม**. Existing saved recipes are available there when present; the recipe tab and recipe-creation prompt are removed from main navigation/Dashboard. Existing recipe data is retained.
+
+## Existing Recipe Builder
 
 The cookbook starts with saved recipes and a create button. Creating or editing a recipe has three steps: ingredients for the full batch, name/servings (and optional measured cooked yield), then review/save. Search and select an ingredient, choose its weighed state and enter grams; source details are available in a disclosure. Switching state selects a different source record, not an invented raw-to-cooked weight conversion. Nutrition scales from per-100g source values; the source energy field is preserved rather than reconstructed using 4/4/9.
 
@@ -69,9 +75,9 @@ The cookbook starts with saved recipes and a create button. Creating or editing 
 
 For brands/condiments, enter the label's reference grams and nutrients (e.g. per 15 g). The app normalizes the basis automatically. Saved product-label ingredients become available in later recipes and are marked as manually entered rather than USDA-verified.
 
-Saving a recipe does not count it as eaten. **Add a meal** offers direct ingredient entry or a saved recipe. Saved recipes use the same portion form as cookbook cards. Meal shortcuts preserve Breakfast/Lunch/Dinner/Snack. Creating a recipe from this dialog also preserves the intended meal for the follow-up log. Manual calorie/macro entry is a secondary option under the nutrition-info disclosure.
+Saving a recipe does not count it as eaten. Existing saved recipes use the same portion form as cookbook cards, through the additional logging methods. Meal shortcuts preserve Breakfast/Lunch/Dinner/Snack.
 
-For a one-off meal, choose **เลือกวัตถุดิบสำหรับมื้อนี้**, select who is eating, and enter ingredient amounts actually eaten by that person. Raw/cooked selection, product labels and nutrition calculation work like the cookbook, but there is no serving denominator or recipe record. The current date/meal are prefilled; name and date adjustments are optional. Blank names use ingredient names automatically. Food diary retains ingredient amounts/units, preparation states and source snapshots after reload. Label ingredients from these meals can be reused in later meals or recipes. Dashboard uses the stored meal nutrition for the selected person/date.
+For a one-off meal, open **วิธีบันทึกเพิ่มเติม → คำนวณจากวัตถุดิบ**, select who is eating, and enter ingredient amounts actually eaten by that person. Raw/cooked selection, product labels and nutrition calculation work like the cookbook, but there is no serving denominator or recipe record. The current date/meal are prefilled; name and date adjustments are optional. Blank names use ingredient names automatically. Food diary retains ingredient amounts/units, preparation states and source snapshots after reload. Label ingredients from these meals can be reused in later meals or recipes. Dashboard uses the stored meal nutrition for the selected person/date.
 
 Save servings and optionally measured cooked yield. Gram portions require cooked yield; it is never inferred from raw ingredient weights. Select the people eating and enter a positive amount for each. New and Ben can log different amounts, including fractional servings, in one operation. Unchecked people receive no entry; the whole recipe need not be consumed. This is portion logging, not batch inventory management. The estimate assumes evenly mixed food; drained liquids, discarded oil and uneven servings can affect it.
 
@@ -91,6 +97,8 @@ npx tsc --noEmit
 `supabase/verify-ingredient-meals.sql` additionally verifies ingredient snapshot import/read, no implicit recipe creation, import retry safety, legacy entry defaults, JSON-array validation and cross-account read isolation. It passed remotely with all fixture records rolled back. The Node tests cover direct-gram totals, rounding, label scaling, independent snapshots and invalid input rejection. Local browser checks use the actual Home/Workspace in a separate origin without Supabase configuration, and cover saving, refreshing, diary details, no recipe creation, profile/date selection and mobile layout.
 
 Browser tests cover sign-in-session loading, cloud error/retry, local import success/failure, backup retention and sign-out using mocked Auth/REST responses. No email or password belonging to the user is used in automated tests, and no real verification email is sent by tests.
+
+Quick-entry checks cover deleting an explicit 0 to a blank field, typing 10 without a leading 0, decimal values, explicit zero, rejecting missing nutrients, and Dashboard/diary totals after save and refresh. The updated form was visually checked at 375px and desktop widths in a separate local origin without Supabase configuration.
 
 The guided cookbook/meal UI was also exercised in an isolated in-memory preview using the actual Workspace components, at desktop and 390px widths. Checks included raw/cooked ingredients, label-basis scaling, recipe save without consumption, separate profile portions, Dashboard/diary totals, measured-yield gram portions and empty-person validation. These checks did not write to a real user's Supabase records.
 

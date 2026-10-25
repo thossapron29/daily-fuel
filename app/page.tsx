@@ -5,6 +5,7 @@ import {PantryContext} from './pantry-context';
 import {buildPantryItem,pantryToRow,pantryFromRow,normalizeBarcode,type PantryItem,type ReadyPantryItem,type PantryDraft,type BarcodeCandidate} from '../lib/pantry';
 import {defaultProfiles,Profile,Entry,Recipe,today,uid,getSupabase} from '../lib/data';
 import {validateNutritionProfile} from '../lib/nutrition';
+import {emptyMealDraft,parseMealDraft} from '../lib/manual-meals';
 import {parseLocalBackup, type LocalBackup} from '../lib/local-backup';
 import {buildIngredientMeal, type IngredientMealDraft, buildRecipe, portionNutrition, validateRecipeLog, type RecipeDraft, type RecipeLog} from '../lib/recipes';
 const db=getSupabase();
@@ -14,7 +15,7 @@ export default function Home(){
  const [profiles,setProfiles]=useState<Profile[]>(defaultProfiles),[who,setWho]=useState('new'),[tab,setTab]=useState('Dashboard'),[day,setDay]=useState(today());
  const [entries,setEntries]=useState<Entry[]>([]),[recipes,setRecipes]=useState<Recipe[]>([]),[weights,setWeights]=useState<{id:string;profile_id:string;date:string;weight:number}[]>([]);
  const [pantry,setPantry]=useState<PantryItem[]>([]);
- const [food,setFood]=useState({name:'',meal:'Lunch',calories:0,protein:0,carbs:0,fat:0}),[weight,setWeight]=useState(0);
+ const [food,setFood]=useState(emptyMealDraft),[weight,setWeight]=useState(0);
  const list=entries.filter(x=>x.profile_id===who&&x.date===day);
  const save=(ps=profiles,es=entries,rs=recipes,ws=weights,pantryItems=pantry)=>{if(!db)localStorage.setItem('dailyfuel',JSON.stringify({profiles:ps,entries:es,recipes:rs,weights:ws,pantry:pantryItems}))};
  const [authReady,setAuthReady]=useState(!db),[loadedAccount,setLoadedAccount]=useState<string|null>(null);
@@ -101,16 +102,15 @@ export default function Home(){
  }
  const dbid=(slot:string)=>(profiles.find(x=>x.id===slot) as Profile&{dbid?:string})?.dbid;
  async function addFood(){
-  if(!food.name.trim()||![food.calories,food.protein,food.carbs,food.fat].every(value=>Number.isFinite(value)&&value>=0))return false;
   setError('');
   try{
-   const x={...food,id:uid(),profile_id:who,date:day};
+   const x={...parseMealDraft(food),id:uid(),profile_id:who,date:day};
    if(db){
     if(!account)throw new Error('กรุณาเข้าสู่ระบบ');
     const {error}=await db.from('entries').insert({...x,profile_id:dbid(who),owner_id:account}).select('id').single();
     if(error)throw error;
    }
-   const a=[...entries,x];save(profiles,a);setEntries(a);setFood({name:'',meal:'Lunch',calories:0,protein:0,carbs:0,fat:0});return true;
+   const a=[...entries,x];save(profiles,a);setEntries(a);setFood(emptyMealDraft());return true;
   }catch(error){setError(messageOf(error,'บันทึกมื้ออาหารไม่สำเร็จ'));return false}
  }
  async function addIngredientMeal(draft:IngredientMealDraft):Promise<boolean>{
