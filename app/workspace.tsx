@@ -87,7 +87,7 @@ export default function Workspace(props:Props) {
       <nav aria-label="Main navigation">{navigation.map(({name,icon:Icon})=><button key={name} className={tab===name?'selected':''} aria-current={tab===name?'page':undefined} onClick={()=>{setMealMessage('');setTab(name)}}><Icon size={17}/><span>{name}</span></button>)}</nav>
       <div className="top-actions">
         <button className={'icon-button settings-button '+(tab==='Settings'?'active':'')} aria-label="Settings" onClick={()=>setTab('Settings')}><Settings size={20}/></button><span className="top-divider"/>
-        <div className="profile-switch" aria-label="Select profile">{profiles.map(profile=><button key={profile.id} aria-label={profile.name} className={who===profile.id?'chosen':''} aria-pressed={who===profile.id} onClick={()=>{if(who!==profile.id)setFood(emptyMealDraft());setWho(profile.id)}}><Avatar ben={profile.id==='ben'}/><span>{profile.name}</span>{who===profile.id&&<Check size={12}/>}</button>)}</div>
+        <div className="profile-switch" aria-label="Select profile">{profiles.map(profile=><button key={profile.id} aria-label={profile.name} className={who===profile.id?'chosen':''} aria-pressed={who===profile.id} onClick={()=>{if(who!==profile.id){setFood(emptyMealDraft());setWeight(0);setError('')}setWho(profile.id)}}><Avatar ben={profile.id==='ben'}/><span>{profile.name}</span>{who===profile.id&&<Check size={12}/>}</button>)}</div>
       </div>
     </header>
 
@@ -144,7 +144,7 @@ export default function Workspace(props:Props) {
           </section>
           <div className="side-stack">
             <section className="recipe-prompt"><div><span className="eyebrow">A LITTLE MOMENT TO LOG</span><h3>A good meal.<br/>A little chat.</h3><a className="textbutton chat-meal-link" href={nutritionChat}>บันทึกผ่าน ChatGPT <ArrowUpRight size={16}/></a></div><img src="/illustrations/salad-bowl.svg" alt="ภาพเวกเตอร์ชามสลัดผักกับไข่"/></section>
-            <section className="weight-card"><span className="small-icon cream"><Scale size={21}/></span><div><span>Your latest weight</span><b>{latestWeight?.weight??p.weight} <small>kg</small></b><span className="weight-source">{latestWeight?latestWeight.date:'จากข้อมูลโปรไฟล์'}</span></div><button className="round-button" aria-label="View weight log" onClick={()=>setTab('Weight log')}><ArrowUpRight size={20}/></button></section>
+            <section className="weight-card"><span className="small-icon cream"><Scale size={21}/></span><div><span>น้ำหนักล่าสุดของ{p.name}</span><b>{latestWeight?.weight??p.weight} <small>kg</small></b><span className="weight-source">{latestWeight?latestWeight.date:'จากข้อมูลโปรไฟล์'}</span></div><button className="round-button" aria-label={`ดูบันทึกน้ำหนักของ${p.name}`} onClick={()=>setTab('Weight log')}><ArrowUpRight size={20}/></button></section>
           </div>
         </div>
         <section className="daily-analysis-card"><div><span className="eyebrow">A MOMENT TO REFLECT</span><h2>มองภาพรวมไปด้วยกัน</h2><p>ให้ ChatGPT ช่วยดูโภชนาการของ{p.name} วันที่ {dateText} เทียบกับเป้าหมาย</p><p className="daily-analysis-hint">ในแชตเลือก Daily Fuel แล้วพิมพ์ “วิเคราะห์โภชนาการของ{p.name} วันที่ {day}”</p></div><a className="secondary chat-meal-link" href={nutritionChat}>{day===today()?'วิเคราะห์วันนี้':'วิเคราะห์วันที่เลือก'}ใน ChatGPT <ArrowUpRight size={17}/></a></section>
@@ -156,8 +156,8 @@ export default function Workspace(props:Props) {
       </section>}
 
 
-      {tab==='Weight log'&&<section className="panel weight-panel"><div className="section-heading"><div><span className="eyebrow">ONE STEP AT A TIME</span><h3>Your weight journal</h3></div><Scale size={27}/></div>
-        <form className="weight-form" onSubmit={e=>{e.preventDefault();addWeight()}}><label>Weight (kg)<input required min="1" type="number" step="0.1" placeholder={String(p.weight)} value={weight||''} onChange={e=>setWeight(Number(e.target.value))}/></label><button className="primary"><Plus size={17}/> Log weight</button></form>
+      {tab==='Weight log'&&<section className="panel weight-panel"><div className="section-heading"><div><span className="eyebrow">ONE STEP AT A TIME</span><h3>บันทึกน้ำหนักของ{p.name}</h3><p className="weight-profile-hint">แสดงเฉพาะข้อมูลของ{p.name} · สลับคนได้ที่ด้านบน</p></div><Scale size={27}/></div>
+        <form className="weight-form" onSubmit={e=>{e.preventDefault();addWeight()}}><label>น้ำหนักของ{p.name} (kg)<input required min="1" type="number" step="0.1" placeholder={String(p.weight)} value={weight||''} onChange={e=>setWeight(Number(e.target.value))}/></label><button className="primary"><Plus size={17}/> บันทึกน้ำหนัก</button></form>
         {weights.filter(x=>x.profile_id===who).length?weights.filter(x=>x.profile_id===who).sort((a,b)=>b.date.localeCompare(a.date)).map(x=><div className="entry" key={x.id}><span>{x.date}</span><b>{x.weight} <small>kg</small></b></div>):<div className="simple-empty"><Leaf size={30}/><p>เริ่มบันทึกน้ำหนัก แล้วค่อยๆ ดูความเปลี่ยนแปลงไปด้วยกัน</p></div>}
       </section>}
 
