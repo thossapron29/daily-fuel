@@ -1,11 +1,11 @@
 import {ApiError} from './gpt-api';
 
 export const noStore={'Cache-Control':'no-store','Pragma':'no-cache','Referrer-Policy':'no-referrer'};
-export async function bridge(action:string,payload:Record<string,unknown>){
+export async function bridge(action:string,payload:Record<string,unknown>,endpoint:'gpt_bridge'|'daily_summary_bridge'='gpt_bridge'){
  const url=process.env.NEXT_PUBLIC_SUPABASE_URL,key=process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY||process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
  if(!url||!key)throw new ApiError(503,'unavailable','Daily Fuel is not configured');
  let response:Response;
- try{response=await fetch(`${url.replace(/\/$/,'')}/rest/v1/rpc/gpt_bridge`,{method:'POST',headers:{apikey:key,'Content-Type':'application/json'},body:JSON.stringify({action,payload}),cache:'no-store',signal:AbortSignal.timeout(12000)})}
+ try{response=await fetch(`${url.replace(/\/$/,'')}/rest/v1/rpc/${endpoint}`,{method:'POST',headers:{apikey:key,'Content-Type':'application/json'},body:JSON.stringify({action,payload}),cache:'no-store',signal:AbortSignal.timeout(12000)})}
  catch{throw new ApiError(503,'unavailable','Connection unavailable; retry with the same request or draft ID')}
  const data=await response.json();
  if(!response.ok){

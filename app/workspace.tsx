@@ -110,6 +110,7 @@ export default function Workspace(props:Props) {
       {tab==='Overview'&&<NutritionOverview entries={mealHistory} profile={p} day={day} setDay={setDay} openDay={()=>setTab('Dashboard')}/>}
       {tab==='Dashboard'&&<>
         <NutritionAlerts entries={entries} goal={goal} macros={macroGoals} scope={`${account||'local'}:${who}:${day}`} name={p.name} onDiary={()=>setTab('Food diary')}/>
+        <section className="daily-analysis-card"><div><span className="eyebrow">A MOMENT TO REFLECT</span><h2>มองภาพรวมไปด้วยกัน</h2><p>ให้ ChatGPT ช่วยดูโภชนาการของ{p.name} วันที่ {dateText} เทียบกับเป้าหมาย</p><p className="daily-analysis-hint">ในแชตเลือก Daily Fuel แล้วพิมพ์ “วิเคราะห์โภชนาการของ{p.name} วันที่ {day}”</p></div><a className="secondary chat-meal-link" href="https://chatgpt.com/plugins/plugin_asdk_app_6addd4c08b0481918be519aba2bbf1a4" target="_blank" rel="noopener noreferrer">{day===today()?'วิเคราะห์วันนี้':'วิเคราะห์วันที่เลือก'}ใน ChatGPT <ArrowUpRight size={17}/></a></section>
         <div className="dashboard-grid">
           <section className="welcome-card">
             <div className="welcome-copy"><span className="pill"><Sun size={14}/> A FRESH LITTLE START</span><h2>A little care,<br/>in every bite.</h2><p>มื้อดีๆ เริ่มจากความใส่ใจเล็กๆ<br/>มาเติมพลังให้วันนี้กัน</p></div>
