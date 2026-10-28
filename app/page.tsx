@@ -8,12 +8,22 @@ import {validateNutritionProfile} from '../lib/nutrition';
 import {emptyMealDraft,parseMealDraft} from '../lib/manual-meals';
 import {parseSharedMenus,type SharedMenu} from '../lib/meal-history';
 import {parseLocalBackup, type LocalBackup} from '../lib/local-backup';
+import {tabFromPath,tabPaths,validSelectedDay} from '../lib/tab-paths';
 import {buildIngredientMeal, type IngredientMealDraft, buildRecipe, portionNutrition, validateRecipeLog, type RecipeDraft, type RecipeLog} from '../lib/recipes';
 const db=getSupabase();
 const messageOf=(error:unknown,fallback:string)=>error&&typeof error==='object'&&'message' in error&&typeof error.message==='string'?error.message:fallback;
 export default function Home(){
  const [account,setAccount]=useState<string|null>(null),[email,setEmail]=useState(''),[password,setPassword]=useState(''),[error,setError]=useState('');
- const [profiles,setProfiles]=useState<Profile[]>(defaultProfiles),[who,setWho]=useState('new'),[tab,setTab]=useState('Dashboard'),[day,setDay]=useState(today());
+ const [profiles,setProfiles]=useState<Profile[]>(defaultProfiles),[who,setWho]=useState('new'),[tab,setTabState]=useState('Dashboard'),[day,setDay]=useState(today());
+ const [selectionReady,setSelectionReady]=useState(false);
+ useEffect(()=>{
+  setTabState(tabFromPath(window.location.pathname));
+  try{const storedWho=sessionStorage.getItem('dailyfuel:selected-profile'),storedDay=sessionStorage.getItem('dailyfuel:selected-day');if(storedWho==='new'||storedWho==='ben')setWho(storedWho);if(storedDay&&validSelectedDay(storedDay))setDay(storedDay)}catch{}
+  setSelectionReady(true);
+  const onPop=()=>setTabState(tabFromPath(window.location.pathname));window.addEventListener('popstate',onPop);return()=>window.removeEventListener('popstate',onPop);
+ },[]);
+ useEffect(()=>{if(!selectionReady)return;try{sessionStorage.setItem('dailyfuel:selected-profile',who);sessionStorage.setItem('dailyfuel:selected-day',day)}catch{}},[selectionReady,who,day]);
+ const setTab:React.Dispatch<React.SetStateAction<string>>=useCallback(value=>{const next=typeof value==='function'?value(tab):value;const path=tabPaths[next];if(!path)return;if(window.location.pathname!==path)window.history.pushState(null,'',path);setTabState(next)},[tab]);
  const [entries,setEntries]=useState<Entry[]>([]),[recipes,setRecipes]=useState<Recipe[]>([]),[weights,setWeights]=useState<{id:string;profile_id:string;date:string;weight:number}[]>([]);
  const [pantry,setPantry]=useState<PantryItem[]>([]);
  const [food,setFood]=useState(emptyMealDraft),[weight,setWeight]=useState(0);

@@ -194,3 +194,12 @@ nav button{font-size:.875rem}.topbar{gap:15px}.topbar nav button{padding:12px 10
 }
 .chat-meal-link{text-decoration:none}
 @media(max-width:650px){.topbar>nav{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media(max-width:650px){
+ .macro-card .macro-list{display:flex;flex-direction:column;gap:18px}
+ .macro-card .macro-row{width:100%;flex:none}
+ .macro-title{display:flex;flex-direction:row;justify-content:space-between;gap:12px}
+ .macro-title>b{white-space:nowrap}
+ .weight-card>div{flex:1;min-width:0}
+ .weight-card>div>span.weight-source{white-space:nowrap}
+ .welcome-copy p{max-width:60%}
+}
