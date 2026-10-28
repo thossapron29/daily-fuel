@@ -1,0 +1,2 @@
+import type {MetadataRoute} from 'next';
+export default function manifest():MetadataRoute.Manifest{return {id:'/',name:'Daily Fuel — Nutrition, together',short_name:'Daily Fuel',description:'บันทึกโภชนาการของนิวและเบ้น',start_url:'/',scope:'/',display:'standalone',background_color:'#edf3f6',theme_color:'#edf3f6',lang:'th',icons:[{src:'/icons/icon-192.png',sizes:'192x192',type:'image/png',purpose:'any'},{src:'/icons/icon-512.png',sizes:'512x512',type:'image/png',purpose:'any'},{src:'/icons/icon-maskable-512.png',sizes:'512x512',type:'image/png',purpose:'maskable'}]};}

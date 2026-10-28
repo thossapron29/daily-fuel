@@ -41,7 +41,9 @@ export default function Home(){
     const defaults=defaultProfiles.map(profile=>({owner_id:account,slot:profile.id,name:profile.name,sex:profile.sex,age:profile.age,weight:profile.weight,height:profile.height,activity:profile.activity,body_fat:profile.body_fat,goal:profile.goal,adjustment:profile.adjustment,macro_plan:profile.macro_plan??'moderate'}));
     const bootstrap=await db.from('profiles').upsert(defaults,{onConflict:'owner_id,slot',ignoreDuplicates:true});
     if(bootstrap.error)throw bootstrap.error;
-    const [ps,es,rs,ws,receipts,pantryResult]=await Promise.all(['profiles','entries','recipes','weights','import_receipts','pantry_items'].map(table=>db.from(table).select('*').eq('owner_id',account)));
+    // Entries feed both the diary and historical overview; fetch beyond the API's row limit.
+    const loadEntries=async()=>{const rows:Entry[]=[];let cursor:string|null=null;for(;;){let query=db.from('entries').select('*').eq('owner_id',account).order('id').limit(500);if(cursor)query=query.gt('id',cursor);const result=await query;if(result.error)throw result.error;const page=result.data||[];rows.push(...page as Entry[]);if(page.length<500)break;cursor=page[page.length-1].id;}return {data:rows,error:null};};
+    const [ps,es,rs,ws,receipts,pantryResult]=await Promise.all([db.from('profiles').select('*').eq('owner_id',account),loadEntries(),...['recipes','weights','import_receipts','pantry_items'].map(table=>db.from(table).select('*').eq('owner_id',account))]);
     for(const result of [ps,es,rs,ws,receipts,pantryResult])if(result.error)throw result.error;
     if(cancelled)return;
     const lookup=new Map((ps.data||[]).map(profile=>[profile.id,profile.slot]));
