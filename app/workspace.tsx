@@ -35,6 +35,7 @@ const navigation = [
   {name:'Dashboard', icon:LayoutDashboard}, {name:'Overview', icon:ChartNoAxesCombined}, {name:'Food diary', icon:Utensils},
   {name:'Weight log', icon:Scale},
 ];
+const nutritionChat='https://chatgpt.com/c/6addb2bb-1bdc-83ec-bb70-f24d87244f8d';
 const meals = [
   {name:'Breakfast', icon:Sun, hint:'เริ่มวันด้วยมื้อดีๆ'},
   {name:'Lunch', icon:Utensils, hint:'เติมพลังระหว่างวัน'},
@@ -91,11 +92,11 @@ export default function Workspace(props:Props) {
     </header>
 
     <main className="content">
-      <div className="page-heading"><div>
+      <div className={`page-heading ${tab==='Dashboard'?'dashboard-heading':''}`}><div>
         <div className="eyebrow"><span/> A LITTLE BETTER, EVERY DAY</div>
         <h1>{tab==='Dashboard'?<>Feeling good starts here<span className="heading-dot">.</span></>:tab==='Overview'?'A little progress, every day.':tab==='Food diary'?'Your daily bites.':tab==='My recipes'?'Made with love.':tab==='Pantry'?'Our everyday ingredients.':tab==='Weight log'?'Small steps, real progress.':'A little more about you.'}</h1>
         <p className="sub">{tab==='Dashboard'?`วันนี้กินดี ดูแลตัวเองไปด้วยกันนะ ${p.name}`:tab==='Overview'?`ภาพรวมโภชนาการของ${p.name} ในจังหวะของตัวเอง`:tab==='Food diary'?'ทุกมื้อเล็กๆ คือส่วนหนึ่งของการดูแลตัวเอง':tab==='My recipes'?'สูตรโปรดจากครัวของเรา แชร์กันได้ทั้งนิวและเบ้น':tab==='Pantry'?'เครื่องปรุงและวัตถุดิบที่บ้านเราใช้ เลือกง่ายได้ทุกมื้อ':tab==='Weight log'?'ค่อยๆ ดูแลตัวเอง ในจังหวะที่เป็นคุณ':'ปรับข้อมูลและเป้าหมายให้เหมาะกับตัวเอง'}</p>
-      </div>{['Dashboard','Food diary'].includes(tab)&&<a className="primary add-food chat-meal-link" href="https://chatgpt.com/plugins/plugin_asdk_app_6addd4c08b0481918be519aba2bbf1a4" target="_blank" rel="noopener noreferrer">บันทึกผ่าน ChatGPT <ArrowUpRight size={17}/></a>}</div>
+      </div>{['Dashboard','Food diary'].includes(tab)&&<a className={`primary add-food chat-meal-link ${tab==='Dashboard'?'dashboard-quick-log':''}`} href={nutritionChat}>บันทึกผ่าน ChatGPT <ArrowUpRight size={17}/></a>}</div>
 
       <p className="meal-status" role="status">{mealMessage}</p>
       {cloudNotice&&<p className="cloud-notice" role="status">{cloudNotice}</p>}
@@ -110,7 +111,6 @@ export default function Workspace(props:Props) {
       {tab==='Overview'&&<NutritionOverview entries={mealHistory} profile={p} day={day} setDay={setDay} openDay={()=>setTab('Dashboard')}/>}
       {tab==='Dashboard'&&<>
         <NutritionAlerts entries={entries} goal={goal} macros={macroGoals} scope={`${account||'local'}:${who}:${day}`} name={p.name} onDiary={()=>setTab('Food diary')}/>
-        <section className="daily-analysis-card"><div><span className="eyebrow">A MOMENT TO REFLECT</span><h2>มองภาพรวมไปด้วยกัน</h2><p>ให้ ChatGPT ช่วยดูโภชนาการของ{p.name} วันที่ {dateText} เทียบกับเป้าหมาย</p><p className="daily-analysis-hint">ในแชตเลือก Daily Fuel แล้วพิมพ์ “วิเคราะห์โภชนาการของ{p.name} วันที่ {day}”</p></div><a className="secondary chat-meal-link" href="https://chatgpt.com/plugins/plugin_asdk_app_6addd4c08b0481918be519aba2bbf1a4" target="_blank" rel="noopener noreferrer">{day===today()?'วิเคราะห์วันนี้':'วิเคราะห์วันที่เลือก'}ใน ChatGPT <ArrowUpRight size={17}/></a></section>
         <div className="dashboard-grid">
           <section className="welcome-card">
             <div className="welcome-copy"><span className="pill"><Sun size={14}/> A FRESH LITTLE START</span><h2>A little care,<br/>in every bite.</h2><p>มื้อดีๆ เริ่มจากความใส่ใจเล็กๆ<br/>มาเติมพลังให้วันนี้กัน</p></div>
@@ -143,15 +143,16 @@ export default function Workspace(props:Props) {
             </div>})}</div>
           </section>
           <div className="side-stack">
-            <section className="recipe-prompt"><div><span className="eyebrow">A LITTLE MOMENT TO LOG</span><h3>A good meal.<br/>A little chat.</h3><a className="textbutton chat-meal-link" href="https://chatgpt.com/plugins/plugin_asdk_app_6addd4c08b0481918be519aba2bbf1a4" target="_blank" rel="noopener noreferrer">บันทึกผ่าน ChatGPT <ArrowUpRight size={16}/></a></div><img src="/illustrations/salad-bowl.svg" alt="ภาพเวกเตอร์ชามสลัดผักกับไข่"/></section>
+            <section className="recipe-prompt"><div><span className="eyebrow">A LITTLE MOMENT TO LOG</span><h3>A good meal.<br/>A little chat.</h3><a className="textbutton chat-meal-link" href={nutritionChat}>บันทึกผ่าน ChatGPT <ArrowUpRight size={16}/></a></div><img src="/illustrations/salad-bowl.svg" alt="ภาพเวกเตอร์ชามสลัดผักกับไข่"/></section>
             <section className="weight-card"><span className="small-icon cream"><Scale size={21}/></span><div><span>Your latest weight</span><b>{latestWeight?.weight??p.weight} <small>kg</small></b><span className="weight-source">{latestWeight?latestWeight.date:'จากข้อมูลโปรไฟล์'}</span></div><button className="round-button" aria-label="View weight log" onClick={()=>setTab('Weight log')}><ArrowUpRight size={20}/></button></section>
           </div>
         </div>
+        <section className="daily-analysis-card"><div><span className="eyebrow">A MOMENT TO REFLECT</span><h2>มองภาพรวมไปด้วยกัน</h2><p>ให้ ChatGPT ช่วยดูโภชนาการของ{p.name} วันที่ {dateText} เทียบกับเป้าหมาย</p><p className="daily-analysis-hint">ในแชตเลือก Daily Fuel แล้วพิมพ์ “วิเคราะห์โภชนาการของ{p.name} วันที่ {day}”</p></div><a className="secondary chat-meal-link" href={nutritionChat}>{day===today()?'วิเคราะห์วันนี้':'วิเคราะห์วันที่เลือก'}ใน ChatGPT <ArrowUpRight size={17}/></a></section>
         <div className="body-stats"><span><Leaf size={14}/> A little insight into your daily needs</span><div><span>TDEE <b>{tdee(p).toLocaleString()}</b> kcal</span><i/><span>BMR <b>{Math.round(bmr(p)).toLocaleString()}</b> kcal</span><button className="textbutton" onClick={()=>setTab('Settings')}>Your goals <ArrowUpRight size={14}/></button></div></div>
       </>}
 
       {tab==='Food diary'&&<section className="panel"><div className="section-heading"><div><span className="eyebrow">YOUR FOOD JOURNAL</span><h3>A day of nourishment</h3></div><span className="total-badge">{eaten.toLocaleString()} kcal</span></div>
-        {entries.length?entries.map(x=><div className="entry" key={x.id}><span className="meal-icon meal-1"><Utensils size={20}/></span><div className="entry-description"><b>{x.name}</b><span>{x.meal}{x.portion_amount ? ` · ${x.portion_amount} ${x.portion_unit === 'grams' ? 'g' : 'เสิร์ฟ'}` : ''} · Protein {x.protein}g / Carbs {x.carbs}g / Fat {x.fat}g</span>{x.nutrition_source==='chatgpt_estimate'&&<span className="entry-source">ประมาณจาก ChatGPT</span>}<ExtraNutritionSummary meal={x}/>{!!x.ingredient_items?.length&&<details className="entry-ingredients"><summary>วัตถุดิบ ({x.ingredient_items.length})</summary><ul>{x.ingredient_items.map(item=><li key={item.id}>{item.food.name} ({stateLabels[item.food.state]}) <b>{item.grams} {item.unit||'g'}</b></li>)}</ul></details>}</div><b>{x.calories} <small>kcal</small></b><button className="icon-button" aria-label={`Delete ${x.name}`} onClick={()=>removeFood(x.id)}><X size={17}/></button></div>):<div className="empty-state"><img src="/illustrations/salad-bowl.svg" alt=""/><h3>Your first bite starts here.</h3><p>ยังไม่มีมื้ออาหารในวันนี้ คุยกับ ChatGPT เพื่อเตรียมบันทึกมื้อได้เลย</p><a className="primary chat-meal-link" href="https://chatgpt.com/plugins/plugin_asdk_app_6addd4c08b0481918be519aba2bbf1a4" target="_blank" rel="noopener noreferrer">บันทึกผ่าน ChatGPT <ArrowUpRight size={16}/></a></div>}
+        {entries.length?entries.map(x=><div className="entry" key={x.id}><span className="meal-icon meal-1"><Utensils size={20}/></span><div className="entry-description"><b>{x.name}</b><span>{x.meal}{x.portion_amount ? ` · ${x.portion_amount} ${x.portion_unit === 'grams' ? 'g' : 'เสิร์ฟ'}` : ''} · Protein {x.protein}g / Carbs {x.carbs}g / Fat {x.fat}g</span>{x.nutrition_source==='chatgpt_estimate'&&<span className="entry-source">ประมาณจาก ChatGPT</span>}<ExtraNutritionSummary meal={x}/>{!!x.ingredient_items?.length&&<details className="entry-ingredients"><summary>วัตถุดิบ ({x.ingredient_items.length})</summary><ul>{x.ingredient_items.map(item=><li key={item.id}>{item.food.name} ({stateLabels[item.food.state]}) <b>{item.grams} {item.unit||'g'}</b></li>)}</ul></details>}</div><b>{x.calories} <small>kcal</small></b><button className="icon-button" aria-label={`Delete ${x.name}`} onClick={()=>removeFood(x.id)}><X size={17}/></button></div>):<div className="empty-state"><img src="/illustrations/salad-bowl.svg" alt=""/><h3>Your first bite starts here.</h3><p>ยังไม่มีมื้ออาหารในวันนี้ คุยกับ ChatGPT เพื่อเตรียมบันทึกมื้อได้เลย</p><a className="primary chat-meal-link" href={nutritionChat}>บันทึกผ่าน ChatGPT <ArrowUpRight size={16}/></a></div>}
       </section>}
 
 

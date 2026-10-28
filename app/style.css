@@ -196,6 +196,13 @@ nav button{font-size:.875rem}.topbar{gap:15px}.topbar nav button{padding:12px 10
 .daily-analysis-card h2{font-size:20px;margin:5px 0}.daily-analysis-card p{font-size:.9rem;color:var(--muted);line-height:1.6}.daily-analysis-card .daily-analysis-hint{font-size:.8125rem;margin-top:5px}.analysis-consent{margin-top:18px}.analysis-consent p{margin:8px 0;font-size:.875rem;line-height:1.6}
 @media(max-width:650px){.daily-analysis-card{align-items:flex-start;flex-direction:column;padding:20px}.daily-analysis-card .secondary{white-space:normal}.daily-analysis-card h2{font-size:19px}}
 @media(display-mode:standalone){.topbar{position:sticky;top:0;z-index:20;background:var(--canvas);padding-top:max(16px,env(safe-area-inset-top));}}
+/* Put the day's numbers ahead of illustrations and optional actions on phones. */
+@media(max-width:650px){
+ .dashboard-quick-log,.dashboard-grid .welcome-card{display:none}
+ .dashboard-heading{margin-bottom:10px}.dashboard-heading h1{font-size:27px;line-height:1.2;margin-top:8px}.dashboard-heading .sub{margin-top:6px}
+ .dashboard-heading+.meal-status:empty{display:none}
+ .dashboard-grid{gap:14px}.daily-analysis-card{margin-top:18px}
+}
 .chat-meal-link{text-decoration:none}
 @media(max-width:650px){.topbar>nav{grid-template-columns:repeat(4,minmax(0,1fr))}}
 @media(max-width:650px){
