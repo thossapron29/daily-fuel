@@ -104,12 +104,6 @@
 .daily-extras .section-heading > .pill { white-space: nowrap; }
 .daily-extras-grid { gap: var(--space-4); margin-top: var(--space-5); }
 .extra-nutrient-value { min-height: 36px; }
-.daily-analysis-card { display: flex; align-items: center; justify-content: space-between; gap: var(--space-5); padding: var(--card-padding); }
-.daily-analysis-card > div { min-width: 0; }
-.daily-analysis-card h2 { margin: var(--space-2) 0; font-size: 20px; line-height: 1.5; }
-.daily-analysis-card p { font-size: 14px; line-height: 1.7; }
-.daily-analysis-card .daily-analysis-hint { margin-top: var(--space-2); font-size: 12px; overflow-wrap: anywhere; }
-.daily-analysis-card .secondary { flex-shrink: 0; white-space: normal; }
 .body-stats { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: var(--space-4); padding: var(--space-2) 0; font-size: 12px; }
 .body-stats > span { display: flex; align-items: center; gap: var(--space-2); max-width: none; margin: 0; font-size: 12px; line-height: 1.6; }
 .body-stats > div { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-4); font-size: 12px; }
@@ -151,7 +145,6 @@
   .top-actions { margin-left: auto; }
   .dashboard-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .dashboard-grid > .welcome-card { display: none; }
-  .daily-analysis-card { flex-wrap: wrap; }
 }
 
 @media (max-width: 900px) {
@@ -190,7 +183,6 @@
   .daily-extras .section-heading { align-items: flex-start; }
   .daily-extras-grid { grid-template-columns: minmax(0, 1fr); }
   .extra-nutrient:last-child { grid-column: auto; }
-  .daily-analysis-card { align-items: flex-start; flex-direction: column; gap: var(--space-4); }
   .body-stats { gap: var(--space-3); }
   .body-stats > div { gap: var(--space-3); }
   .nutrition-settings h2 { font-size: 22px; }

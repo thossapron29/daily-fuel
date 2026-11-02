@@ -190,7 +190,7 @@ nav button{font-size:.875rem}.topbar{gap:15px}.topbar nav button{padding:12px 10
 }
 .overview-over-text{min-height:1em;white-space:nowrap}
 .weight-profile-hint{margin-top:6px;color:var(--muted);font-size:.875rem;line-height:1.6}
-.daily-analysis-card{border:1px solid var(--line);background:var(--paper)}.daily-analysis-card p{color:var(--muted)}.analysis-consent{margin-top:18px}.analysis-consent p{margin:8px 0;font-size:.875rem;line-height:1.6}
+.analysis-consent{margin-top:18px}.analysis-consent p{margin:8px 0;font-size:.875rem;line-height:1.6}
 @media(display-mode:standalone){.topbar{position:sticky;top:0;z-index:20;background:var(--canvas);padding-top:max(16px,env(safe-area-inset-top));}}
 /* Put the day's numbers ahead of illustrations and optional actions on phones. */
 @media(max-width:650px){

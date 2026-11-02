@@ -9,6 +9,7 @@ import {emptyMealDraft,parseMealDraft} from '../lib/manual-meals';
 import {parseSharedMenus,type SharedMenu} from '../lib/meal-history';
 import {parseLocalBackup, type LocalBackup} from '../lib/local-backup';
 import {tabFromPath,tabPaths,validSelectedDay} from '../lib/tab-paths';
+import type {AnalysisRequest,AnalysisResult} from '../lib/nutrition-analysis';
 import {buildIngredientMeal, type IngredientMealDraft, buildRecipe, portionNutrition, validateRecipeLog, type RecipeDraft, type RecipeLog} from '../lib/recipes';
 const db=getSupabase();
 const messageOf=(error:unknown,fallback:string)=>error&&typeof error==='object'&&'message' in error&&typeof error.message==='string'?error.message:fallback;
@@ -114,6 +115,15 @@ export default function Home(){
    setLoadedAccount(null);setReloadVersion(value=>value+1);
   }catch(error){setError(messageOf(error,'นำเข้าข้อมูลไม่สำเร็จ กรุณาลองอีกครั้ง'))}
   finally{setImporting(false)}
+ }
+ async function analyzeNutrition(args:AnalysisRequest,signal:AbortSignal):Promise<AnalysisResult>{
+  if(!db)throw new Error('กรุณาเข้าสู่ระบบเพื่อวิเคราะห์มื้อในบัญชี');
+  const {data,error}=await db.auth.getSession();
+  if(error||!data.session)throw new Error('เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่');
+  const response=await fetch('/api/nutrition-analysis',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${data.session.access_token}`},body:JSON.stringify(args),signal});
+  const result=await response.json();
+  if(!response.ok)throw new Error(result.error||'วิเคราะห์ไม่สำเร็จ กรุณาลองอีกครั้ง');
+  return result;
  }
  async function signOut(){
   if(!db)return;
@@ -241,5 +251,5 @@ export default function Home(){
  }
 
 
- return <PantryContext.Provider value={{items:pantry,save:savePantry,archive:archivePantry,lookup:lookupBarcode}}><Workspace account={account} cloud={!!db} email={email} password={password} error={error} setEmail={setEmail} setPassword={setPassword} setError={setError} auth={auth} authPending={authPending} authMessage={authMessage} signOut={signOut} localImport={localBackup?{pantry:localBackup.pantry.length,profiles:localBackup.profiles.length,recipes:localBackup.recipes.length,entries:localBackup.entries.length,weights:localBackup.weights.length}:null} importing={importing} importLocalData={importLocalData} cloudNotice={cloudNotice} profiles={profiles} who={who} setWho={setWho} tab={tab} setTab={setTab} day={day} setDay={setDay} entries={list} mealHistory={entries} loadSharedMenus={loadSharedMenus} recipes={recipes} weights={weights} food={food} setFood={setFood} weight={weight} setWeight={setWeight} addFood={addFood} addIngredientMeal={addIngredientMeal} ingredientFoods={entries.flatMap(entry=>(entry.ingredient_items||[]).map(item=>item.food))} removeFood={removeFood} saveRecipe={saveRecipe} logRecipe={logRecipe} saveProfile={saveProfile} addWeight={addWeight}/></PantryContext.Provider>
+ return <PantryContext.Provider value={{items:pantry,save:savePantry,archive:archivePantry,lookup:lookupBarcode}}><Workspace analyzeNutrition={analyzeNutrition} account={account} cloud={!!db} email={email} password={password} error={error} setEmail={setEmail} setPassword={setPassword} setError={setError} auth={auth} authPending={authPending} authMessage={authMessage} signOut={signOut} localImport={localBackup?{pantry:localBackup.pantry.length,profiles:localBackup.profiles.length,recipes:localBackup.recipes.length,entries:localBackup.entries.length,weights:localBackup.weights.length}:null} importing={importing} importLocalData={importLocalData} cloudNotice={cloudNotice} profiles={profiles} who={who} setWho={setWho} tab={tab} setTab={setTab} day={day} setDay={setDay} entries={list} mealHistory={entries} loadSharedMenus={loadSharedMenus} recipes={recipes} weights={weights} food={food} setFood={setFood} weight={weight} setWeight={setWeight} addFood={addFood} addIngredientMeal={addIngredientMeal} ingredientFoods={entries.flatMap(entry=>(entry.ingredient_items||[]).map(item=>item.food))} removeFood={removeFood} saveRecipe={saveRecipe} logRecipe={logRecipe} saveProfile={saveProfile} addWeight={addWeight}/></PantryContext.Provider>
 }

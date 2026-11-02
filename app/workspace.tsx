@@ -3,9 +3,10 @@
 import {useState, type Dispatch, type SetStateAction} from 'react';
 import {ArrowUpRight, ArrowRight, Plus, X, Sun, LayoutDashboard, Utensils, Scale, Settings, ChevronLeft, ChevronRight, CalendarDays, Flame, Leaf, Heart, Check, LogOut, Package, ChartNoAxesCombined} from 'lucide-react';
 import NutritionOverview from './nutrition-overview';
-import {type Profile, type Entry, type Recipe, target, tdee, bmr, today} from '../lib/data';
-import {goalOption, isCustomGoal, macroOption, macroTargets} from '../lib/nutrition';
-import DailyExtras,{NutritionAlerts,ExtraNutritionSummary} from './nutrition-awareness';
+import HouseholdDashboard from './household-dashboard';
+import type {AnalysisRequest,AnalysisResult} from '../lib/nutrition-analysis';
+import {type Profile, type Entry, type Recipe, today} from '../lib/data';
+import {ExtraNutritionSummary} from './nutrition-awareness';
 import NutritionSettings from './nutrition-settings';
 import RecipeBuilder from './recipe-builder';
 import MealDialog from './meal-dialog';
@@ -18,6 +19,7 @@ import {stateLabels, type Food, type IngredientMealDraft, type RecipeDraft, type
 type Weight = {id:string;profile_id:string;date:string;weight:number};
 type Setter<T> = Dispatch<SetStateAction<T>>;
 type Props = {
+  analyzeNutrition:(args:AnalysisRequest,signal:AbortSignal)=>Promise<AnalysisResult>;
   account:string|null; cloud:boolean; email:string; password:string; error:string;
   setEmail:Setter<string>; setPassword:Setter<string>; setError:Setter<string>;
   auth:(signup:boolean)=>Promise<void>; authPending:boolean; authMessage:string; signOut:()=>unknown;
@@ -51,16 +53,6 @@ export default function Workspace(props:Props) {
   const [mealMessage,setMealMessage]=useState('');
   const p = profiles.find(x=>x.id===who)!;
   const eaten = entries.reduce((sum,x)=>sum+Number(x.calories),0);
-  const goal = target(p);
-  const progress = Math.min(100,Math.max(0,eaten/Math.max(1,goal)*100));
-  const macroGoals = macroTargets(p);
-  const macroPlan = macroOption(p.macro_plan);
-  const latestWeight = weights.filter(x=>x.profile_id===who).sort((a,b)=>b.date.localeCompare(a.date))[0];
-  const macroInfo = [
-    {key:'protein', label:'Protein', goal:macroGoals.protein, color:'blue'},
-    {key:'carbs', label:'Carbs', goal:macroGoals.carbs, color:'butter'},
-    {key:'fat', label:'Fat', goal:macroGoals.fat, color:'slate'},
-  ] as const;
   const dateText = new Intl.DateTimeFormat('en-GB',{day:'numeric',month:'long',year:'numeric'}).format(new Date(day+'T12:00:00'));
   function changeDay(amount:number) {
     const d = new Date(day+'T12:00:00');
@@ -87,7 +79,7 @@ export default function Workspace(props:Props) {
       <nav aria-label="Main navigation">{navigation.map(({name,icon:Icon})=><button key={name} className={tab===name?'selected':''} aria-current={tab===name?'page':undefined} onClick={()=>{setMealMessage('');setTab(name)}}><Icon size={17}/><span>{name}</span></button>)}</nav>
       <div className="top-actions">
         <button className={'icon-button settings-button '+(tab==='Settings'?'active':'')} aria-label="Settings" onClick={()=>setTab('Settings')}><Settings size={20}/></button><span className="top-divider"/>
-        <div className="profile-switch" aria-label="Select profile">{profiles.map(profile=><button key={profile.id} aria-label={profile.name} className={who===profile.id?'chosen':''} aria-pressed={who===profile.id} onClick={()=>{if(who!==profile.id){setFood(emptyMealDraft());setWeight(0);setError('')}setWho(profile.id)}}><Avatar ben={profile.id==='ben'}/><span>{profile.name}</span>{who===profile.id&&<Check size={12}/>}</button>)}</div>
+        {tab==='Dashboard'?<div className="household-people" aria-label="แสดงทั้งสองโปรไฟล์">{profiles.map(profile=><span key={profile.id}><Avatar ben={profile.id==='ben'}/><span>{profile.name}</span></span>)}</div>:<div className="profile-switch" aria-label="Select profile">{profiles.map(profile=><button key={profile.id} aria-label={profile.name} className={who===profile.id?'chosen':''} aria-pressed={who===profile.id} onClick={()=>{if(who!==profile.id){setFood(emptyMealDraft());setWeight(0);setError('')}setWho(profile.id)}}><Avatar ben={profile.id==='ben'}/><span>{profile.name}</span>{who===profile.id&&<Check size={12}/>}</button>)}</div>}
       </div>
     </header>
 
@@ -95,7 +87,7 @@ export default function Workspace(props:Props) {
       <div className={`page-heading ${tab==='Dashboard'?'dashboard-heading':''}`}><div>
         <div className="eyebrow"><span/> A LITTLE BETTER, EVERY DAY</div>
         <h1>{tab==='Dashboard'?<>Feeling good starts here<span className="heading-dot">.</span></>:tab==='Overview'?'A little progress, every day.':tab==='Food diary'?'Your daily bites.':tab==='My recipes'?'Made with love.':tab==='Pantry'?'Our everyday ingredients.':tab==='Weight log'?'Small steps, real progress.':'A little more about you.'}</h1>
-        <p className="sub">{tab==='Dashboard'?`วันนี้กินดี ดูแลตัวเองไปด้วยกันนะ ${p.name}`:tab==='Overview'?`ภาพรวมโภชนาการของ${p.name} ในจังหวะของตัวเอง`:tab==='Food diary'?'ทุกมื้อเล็กๆ คือส่วนหนึ่งของการดูแลตัวเอง':tab==='My recipes'?'สูตรโปรดจากครัวของเรา แชร์กันได้ทั้งนิวและเบ้น':tab==='Pantry'?'เครื่องปรุงและวัตถุดิบที่บ้านเราใช้ เลือกง่ายได้ทุกมื้อ':tab==='Weight log'?'ค่อยๆ ดูแลตัวเอง ในจังหวะที่เป็นคุณ':'ปรับข้อมูลและเป้าหมายให้เหมาะกับตัวเอง'}</p>
+        <p className="sub">{tab==='Dashboard'?`ภาพรวมของ${profiles.map(profile=>profile.name).join('กับ')} · แต่ละคนเทียบกับเป้าหมายของตัวเอง`:tab==='Overview'?`ภาพรวมโภชนาการของ${p.name} ในจังหวะของตัวเอง`:tab==='Food diary'?'ทุกมื้อเล็กๆ คือส่วนหนึ่งของการดูแลตัวเอง':tab==='My recipes'?'สูตรโปรดจากครัวของเรา แชร์กันได้ทั้งนิวและเบ้น':tab==='Pantry'?'เครื่องปรุงและวัตถุดิบที่บ้านเราใช้ เลือกง่ายได้ทุกมื้อ':tab==='Weight log'?'ค่อยๆ ดูแลตัวเอง ในจังหวะที่เป็นคุณ':'ปรับข้อมูลและเป้าหมายให้เหมาะกับตัวเอง'}</p>
       </div>{['Dashboard','Food diary'].includes(tab)&&<a className={`primary add-food chat-meal-link ${tab==='Dashboard'?'dashboard-quick-log':''}`} href={nutritionChat}>บันทึกผ่าน ChatGPT <ArrowUpRight size={17}/></a>}</div>
 
       <p className="meal-status" role="status">{mealMessage}</p>
@@ -109,46 +101,7 @@ export default function Workspace(props:Props) {
       </div><span className="day-note"><Leaf size={14}/> Your pace. Your progress.</span></div>}
 
       {tab==='Overview'&&<NutritionOverview entries={mealHistory} profile={p} day={day} setDay={setDay} openDay={()=>setTab('Dashboard')}/>}
-      {tab==='Dashboard'&&<div className="dashboard-content">
-        <NutritionAlerts entries={entries} goal={goal} macros={macroGoals} scope={`${account||'local'}:${who}:${day}`} name={p.name} onDiary={()=>setTab('Food diary')}/>
-        <div className="dashboard-grid">
-          <section className={`energy-card ${eaten>goal?'energy-above':''}`}>
-            <div className="card-heading"><h2 className="card-title">Daily energy</h2><span className="small-icon peach"><Flame size={18}/></span></div><p className="card-sub current-goal-label">{goalOption(p.goal).label}<span>·</span>{isCustomGoal(p) ? 'ปรับเอง' : 'เป้าหมายของคุณ'}</p>
-            <div className="energy-ring" role="img" aria-label={`Consumed ${eaten} of ${goal} kilocalories, ${Math.round(progress)} percent`}>
-              <svg viewBox="0 0 200 200" aria-hidden="true"><circle className="ring-track" cx="100" cy="100" r="86"/><circle className="ring-progress" cx="100" cy="100" r="86" strokeDasharray={`${progress*5.4035} 540.35`}/></svg>
-              <div className="ring-label"><span>You've enjoyed</span><strong>{eaten.toLocaleString()}</strong><span>of {goal.toLocaleString()} kcal</span>{eaten>goal&&<span className="energy-over-badge">สูงกว่าแผน +{Math.round((eaten-goal)*100)/100} kcal</span>}</div><span className="ring-leaf"><Leaf size={19}/></span>
-            </div>
-            <div className="energy-bottom"><div><span>Daily goal</span><b>{goal.toLocaleString()} <small>kcal</small></b></div><span className="vertical-line"/><div><span>{eaten>goal?'Above goal':'Remaining'}</span><b className="accent">{Math.abs(goal-eaten).toLocaleString()} <small>kcal</small></b></div></div>
-          </section>
-          <section className="macro-card">
-            <div className="card-heading"><h2 className="card-title">A little balance</h2><span className="small-icon sage"><Leaf size={18}/></span></div><p className="card-sub">สารอาหารของวันนี้</p>
-            <div className="macro-list">{macroInfo.map(m=>{const value=Math.round(entries.reduce((sum,x)=>sum+Number(x[m.key]),0)*100)/100;return <div className={`macro-row ${m.color} ${m.key!=='protein'&&value>m.goal?'macro-above':''}`} key={m.key}>
-              <div className="macro-title"><span><i/>{m.label}</span><b>{value}<small> / {m.goal} g</small></b></div><div className="progress-track" role="progressbar" aria-label={m.label} aria-valuenow={value} aria-valuemin={0} aria-valuemax={Math.max(value,m.goal)}><div style={{width:`${Math.min(100,value/Math.max(1,m.goal)*100)}%`}}/></div>
-            {value>m.goal&&<p className="macro-over-label">{m.key==='protein'?'ถึงเป้าโปรตีนแล้ว':`สูงกว่าแผน +${Math.round((value-m.goal)*100)/100} g`}</p>}</div>})}</div>
-            <div className="macro-note"><Leaf size={17}/><p>{macroPlan.label}<span>P {macroPlan.protein}% · C {macroPlan.carbs}% · F {macroPlan.fat}%</span></p></div>
-          </section>
-          <section className="welcome-card">
-            <div className="welcome-copy"><span className="pill"><Sun size={14}/> A FRESH LITTLE START</span><h2>A little care,<br/>in every bite.</h2><p>มื้อดีๆ เริ่มจากความใส่ใจเล็กๆ<br/>มาเติมพลังให้วันนี้กัน</p></div>
-            <img className="kitchen-art" src="/illustrations/kitchen-kindness-animated.svg" width="520" height="360" alt="ภาพเวกเตอร์คนน่ารักกำลังทำสลัดในครัว"/>
-            <div className="welcome-footer"><Heart size={14}/> Made for you, shared with love.</div>
-          </section>
-        </div>
-        <div className="lower-grid">
-          <section className="journal-card"><div className="section-heading"><div><span className="eyebrow">ONE MEAL AT A TIME</span><h2 className="card-title">On the menu today<span className="count-badge">{entries.length}</span></h2></div><button className="textbutton" onClick={()=>setTab('Food diary')}>View diary <ArrowUpRight size={15}/></button></div>
-            <div className="meal-list">{meals.map(({name,icon:Icon,hint},i)=>{const items=entries.filter(x=>x.meal===name);return <div className="meal-row" key={name}>
-              <span className={`meal-icon meal-${i}`}><Icon size={20}/></span><div className="meal-info"><b>{name}</b><span>{items.length?items.map(x=>x.name).join(', '):hint}</span></div>
-              {items.length?<span className="meal-calories">{items.reduce((sum,x)=>sum+Number(x.calories),0).toLocaleString()} <small>kcal</small></span>:<span className="not-logged">Not logged yet</span>}
-            </div>})}</div>
-          </section>
-          <div className="side-stack">
-            <section className="recipe-prompt"><div><span className="eyebrow">A LITTLE MOMENT TO LOG</span><h2 className="card-title">A good meal.<br/>A little chat.</h2><a className="textbutton chat-meal-link" href={nutritionChat}>บันทึกผ่าน ChatGPT <ArrowUpRight size={16}/></a></div><img src="/illustrations/salad-bowl-animated.svg" width="300" height="230" alt="ภาพเวกเตอร์ชามสลัดผักกับไข่"/></section>
-            <section className="weight-card"><span className="small-icon cream"><Scale size={21}/></span><div><span>น้ำหนักล่าสุดของ{p.name}</span><b>{latestWeight?.weight??p.weight} <small>kg</small></b><span className="weight-source">{latestWeight?latestWeight.date:'จากข้อมูลโปรไฟล์'}</span></div><button className="round-button" aria-label={`ดูบันทึกน้ำหนักของ${p.name}`} onClick={()=>setTab('Weight log')}><ArrowUpRight size={20}/></button></section>
-          </div>
-        </div>
-        <DailyExtras entries={entries} goal={goal}/>
-        <section className="daily-analysis-card"><div><span className="eyebrow">A MOMENT TO REFLECT</span><h2>มองภาพรวมไปด้วยกัน</h2><p>ให้ ChatGPT ช่วยดูโภชนาการของ{p.name} วันที่ {dateText} เทียบกับเป้าหมาย</p><p className="daily-analysis-hint">ในแชตเลือก Daily Fuel แล้วพิมพ์ “วิเคราะห์โภชนาการของ{p.name} วันที่ {day}”</p></div><a className="secondary chat-meal-link" href={nutritionChat}>{day===today()?'วิเคราะห์วันนี้':'วิเคราะห์วันที่เลือก'}ใน ChatGPT <ArrowUpRight size={17}/></a></section>
-        <div className="body-stats"><span><Leaf size={14}/> A little insight into your daily needs</span><div><span>TDEE <b>{tdee(p).toLocaleString()}</b> kcal</span><i/><span>BMR <b>{Math.round(bmr(p)).toLocaleString()}</b> kcal</span><button className="textbutton" onClick={()=>setTab('Settings')}>Your goals <ArrowUpRight size={14}/></button></div></div>
-      </div>}
+      {tab==='Dashboard'&&<HouseholdDashboard profiles={profiles} entries={mealHistory} date={day} account={account} cloud={cloud} weights={weights} onAnalyze={props.analyzeNutrition} openDiary={person=>{setWho(person);setTab('Food diary')}}/>}
 
       {tab==='Food diary'&&<section className="panel"><div className="section-heading"><div><span className="eyebrow">YOUR FOOD JOURNAL</span><h2 className="card-title">A day of nourishment</h2></div><span className="total-badge">{eaten.toLocaleString()} kcal</span></div>
         {entries.length?entries.map(x=><div className="entry" key={x.id}><span className="meal-icon meal-1"><Utensils size={20}/></span><div className="entry-description"><b>{x.name}</b><span>{x.meal}{x.portion_amount ? ` · ${x.portion_amount} ${x.portion_unit === 'grams' ? 'g' : 'เสิร์ฟ'}` : ''} · Protein {x.protein}g / Carbs {x.carbs}g / Fat {x.fat}g</span>{x.nutrition_source==='chatgpt_estimate'&&<span className="entry-source">ประมาณจาก ChatGPT</span>}<ExtraNutritionSummary meal={x}/>{!!x.ingredient_items?.length&&<details className="entry-ingredients"><summary>วัตถุดิบ ({x.ingredient_items.length})</summary><ul>{x.ingredient_items.map(item=><li key={item.id}>{item.food.name} ({stateLabels[item.food.state]}) <b>{item.grams} {item.unit||'g'}</b></li>)}</ul></details>}</div><b>{x.calories} <small>kcal</small></b><button className="icon-button" aria-label={`Delete ${x.name}`} onClick={()=>removeFood(x.id)}><X size={17}/></button></div>):<div className="empty-state"><img src="/illustrations/salad-bowl-animated.svg" width="300" height="230" alt=""/><h3>Your first bite starts here.</h3><p>ยังไม่มีมื้ออาหารในวันนี้ คุยกับ ChatGPT เพื่อเตรียมบันทึกมื้อได้เลย</p><a className="primary chat-meal-link" href={nutritionChat}>บันทึกผ่าน ChatGPT <ArrowUpRight size={16}/></a></div>}

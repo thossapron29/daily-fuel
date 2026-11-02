@@ -63,6 +63,12 @@ Macro grams use the selected calorie goal, at 4 kcal/g for protein/carbohydrates
 
 ## Quick meal logging
 
+### Shared Dashboard and data coverage
+
+Dashboard shows both owned profiles for the selected date without a profile switch. Each profile keeps independent energy/macro targets, diary totals, latest weight and AI analysis. The Dashboard reads the full already-loaded owner history (`mealHistory`) and filters by profile **and** date; it does not reuse the active-profile diary subset or combine totals. Other detailed pages retain their own profile selection.
+
+The data-coverage section counts known sodium, total sugar and free sugar values against the number of recorded entries. Explicit zero counts as known; null/missing values remain unknown. Partial sums are labelled **ยอดเท่าที่ทราบ**. Coverage means completeness among recorded rows, never proof that every meal in the day was logged or that its nutrients are accurate. Separate source counts distinguish label, ChatGPT estimate, provided totals and manual/legacy entries. Expand each profile's missing-data list to see which meals lack which values. No new cloud access or schema changes are needed.
+
 **Add a meal** opens nutrition entry directly: food name, meal, total kcal and protein/carbs/fat for the selected profile/date. Numeric drafts stay as editable strings until submit so clearing a field stays empty; explicit zero is valid, while blank/negative/non-finite nutrients cannot be saved. Stored diary values remain numbers and feed the existing Dashboard totals. The app does not call ChatGPT or calculate from a text description.
 
 The blue calorie field is the primary visual anchor, with three macro fields underneath and one butter-yellow save button. Ingredient calculation is under **วิธีบันทึกเพิ่มเติม**. Existing saved recipes are available there when present; the recipe tab and recipe-creation prompt are removed from main navigation/Dashboard. Existing recipe data is retained.
@@ -86,6 +92,18 @@ Partner matching happens on the server with literal substring search, deduplicat
 `supabase/verify-shared-menus.sql` verifies projection fields, exact duplicates versus different portions, linked lookup in both directions, isolated diaries/goals, source preservation after copying, outsider/anonymous denial, link-write denial and revocation. All test users and entries are rolled back. The live accounts were separately checked with read-only authenticated-role queries: partner menu lookup succeeds while direct foreign diary reads remain zero.
 
 ## Daily Fuel Plugin + MCP
+
+### Analyze nutrition inside Daily Fuel
+
+The Dashboard's **มองภาพรวมไปด้วยกัน** card calls `POST /api/nutrition-analysis` directly. Set `OPENAI_API_KEY` on the server (`.env.local` for development; the hosting environment for production), optionally `OPENAI_NUTRITION_MODEL` (default `gpt-5.4-mini`), then restart the server. Never use a `NEXT_PUBLIC_` prefix for these variables or paste keys into chat/source control.
+
+The owner clicks to send the selected profile/date's recorded meals and current nutrition targets to OpenAI. The server verifies the Supabase user, reads profiles/entries with that user's JWT, RLS and explicit owner filters, calculates totals with the existing helpers, then calls the Responses API with Structured Outputs and `store:false`. Body measurements are used only on the app server to calculate targets; they are not sent to OpenAI. No service-role key, new tables or Plugin read permission is needed. This native, signed-in feature is separate from external Plugin consent.
+
+The result shows the summary, deterministic consumed/target numbers, observations and a next step. Guided follow-ups cover the next meal and tomorrow. There is no meal/goal write or automatic analysis. Results remain only in component memory, reset when the account/profile/date/meals/targets change, and outstanding UI requests are cancelled. Empty days do not invoke the model. Optional nutrient coverage and estimated-meal counts remain visible; missing sugar/sodium is not zero, and total sugar is not free sugar. Past dates compare with **current** goals.
+
+The server caches identical owner/snapshot/topic results for five minutes in a bounded process cache; every request re-reads the data before checking the cache. Per-owner single-flight plus six uncached requests/minute and 60/day are **best effort per process**, not durable distributed quotas. Configure provider project limits and hosting-level rate controls for a larger rollout. Requests time out after 45 seconds; refusals, incomplete outputs, missing configuration and upstream failures show retryable errors without fabricated analysis. Provider retention policies still apply even with response storage disabled.
+
+`tests/nutrition-analysis.test.mjs` covers scoped reads, auth/config errors, totals/unknown values, snapshot cache invalidation, output failures and usage throttling with mocked providers. A live model check requires a configured key.
 
 The default onboarding at `/gpt` now uses a custom MCP plugin, not GPT Actions. Server URL: `https://daily-fuel-inky.vercel.app/mcp`. Public OAuth resource metadata is at `/.well-known/oauth-protected-resource` (also the `/mcp` suffix variant), and authorization-server metadata is at `/.well-known/oauth-authorization-server`. Discovery advertises static confidential clients, S256, resource `https://daily-fuel-inky.vercel.app/mcp`, and issuer identification. No DCR or CIMD is advertised. Client ID/secret are registered through the signed-in setup UI and entered directly by the owner in ChatGPT's Advanced OAuth settings. Plugin callbacks are exact allowlisted ChatGPT connector URLs. Existing legacy Action clients remain separate and usable until revoked.
 

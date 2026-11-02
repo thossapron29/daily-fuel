@@ -37,7 +37,11 @@ The app uses lightweight `*-animated.svg` variants. The cook's spoon stirs sligh
 - Overview, forms and the Settings connection card use aligned containers and the same card spacing.
 - Verify 375, 768, 1024 and 1440 px, including long meal/profile names and over-goal nutrient values.
 
+The shared Dashboard now uses `app/household-dashboard.css`: two equal profile cards, independent daily targets, then a paired data-coverage section, diaries and reflections. The Dashboard header displays both names rather than a profile toggle. At 700 px and below the cards stack. Coverage bars encode known entry counts, not nutrient intake or accuracy; partial nutrient sums explicitly say they are only the known amount. Source counts and expandable missing-value lists support inspection. Illustrations occupy reserved space in section headings.
+
 ## Shared rules
+
+The Dashboard reflection uses `app/nutrition-analysis.css`: a cream card with a cobalt action, then an inline result with consumed/target values, numbered observations and one soft-blue next step. Guided question buttons reveal another focused analysis in the same card. Below 900 px, observations stack in reading order; phone metrics use two columns. Loading, retry and empty-day states stay in normal flow. The selected person/date remain visible, and changing analysis inputs clears the old result. No floating chat panel or new animation is needed.
 
 - Manrope and Noto Sans Thai; bold, rounded headings with quieter labels.
 - Hierarchy: daily energy, macros, meal journal. BMR and TDEE are supporting information.
