@@ -35,7 +35,7 @@ export function NutritionAlerts({entries,goal,macros,scope,name,onDiary}:{entrie
 
 export default function DailyExtras({entries,goal}:{entries:Entry[];goal:number}){
  const fields=[{key:'sodium_mg',label:'โซเดียม',unit:'mg',limit:2000,icon:Droplets},{key:'free_sugar_g',label:'น้ำตาลอิสระ',unit:'g',limit:goal*.1/4,icon:Candy},{key:'total_sugar_g',label:'น้ำตาลรวม',unit:'g',limit:null,icon:Candy}] as const;
- return <section className="daily-extras panel" aria-labelledby="daily-extras-title"><div className="section-heading"><div><span className="eyebrow">THE LITTLE THINGS ADD UP</span><h3 id="daily-extras-title">รู้เพิ่มอีกนิด ดูแลได้ตรงขึ้น</h3><p>น้ำตาลและโซเดียมของส่วนที่กินจริง</p></div><span className="pill"><Info size={14}/> เท่าที่มีข้อมูล</span></div><div className="daily-extras-grid">{fields.map(({key,label,unit,limit,icon:Icon})=>{
+ return <section className="daily-extras panel" aria-labelledby="daily-extras-title"><div className="section-heading"><div><span className="eyebrow">THE LITTLE THINGS ADD UP</span><h2 id="daily-extras-title">รู้เพิ่มอีกนิด ดูแลได้ตรงขึ้น</h2><p>น้ำตาลและโซเดียมของส่วนที่กินจริง</p></div><span className="pill"><Info size={14}/> เท่าที่มีข้อมูล</span></div><div className="daily-extras-grid">{fields.map(({key,label,unit,limit,icon:Icon})=>{
   const total=extraTotals(entries,key),value=total.value;
   const over=limit!==null&&value!==null&&value>=limit;
   const near=limit!==null&&value!==null&&!over&&value>=limit*.8;
