@@ -8,12 +8,22 @@ import {validateNutritionProfile} from '../lib/nutrition';
 import {emptyMealDraft,parseMealDraft} from '../lib/manual-meals';
 import {parseSharedMenus,type SharedMenu} from '../lib/meal-history';
 import {parseLocalBackup, type LocalBackup} from '../lib/local-backup';
+import {tabFromPath,tabPaths,validSelectedDay} from '../lib/tab-paths';
 import {buildIngredientMeal, type IngredientMealDraft, buildRecipe, portionNutrition, validateRecipeLog, type RecipeDraft, type RecipeLog} from '../lib/recipes';
 const db=getSupabase();
 const messageOf=(error:unknown,fallback:string)=>error&&typeof error==='object'&&'message' in error&&typeof error.message==='string'?error.message:fallback;
 export default function Home(){
  const [account,setAccount]=useState<string|null>(null),[email,setEmail]=useState(''),[password,setPassword]=useState(''),[error,setError]=useState('');
- const [profiles,setProfiles]=useState<Profile[]>(defaultProfiles),[who,setWho]=useState('new'),[tab,setTab]=useState('Dashboard'),[day,setDay]=useState(today());
+ const [profiles,setProfiles]=useState<Profile[]>(defaultProfiles),[who,setWho]=useState('new'),[tab,setTabState]=useState('Dashboard'),[day,setDay]=useState(today());
+ const [selectionReady,setSelectionReady]=useState(false);
+ useEffect(()=>{
+  setTabState(tabFromPath(window.location.pathname));
+  try{const storedWho=sessionStorage.getItem('dailyfuel:selected-profile'),storedDay=sessionStorage.getItem('dailyfuel:selected-day');if(storedWho==='new'||storedWho==='ben')setWho(storedWho);if(storedDay&&validSelectedDay(storedDay))setDay(storedDay)}catch{}
+  setSelectionReady(true);
+  const onPop=()=>setTabState(tabFromPath(window.location.pathname));window.addEventListener('popstate',onPop);return()=>window.removeEventListener('popstate',onPop);
+ },[]);
+ useEffect(()=>{if(!selectionReady)return;try{sessionStorage.setItem('dailyfuel:selected-profile',who);sessionStorage.setItem('dailyfuel:selected-day',day)}catch{}},[selectionReady,who,day]);
+ const setTab:React.Dispatch<React.SetStateAction<string>>=useCallback(value=>{const next=typeof value==='function'?value(tab):value;const path=tabPaths[next];if(!path)return;if(window.location.pathname!==path)window.history.pushState(null,'',path);setTabState(next)},[tab]);
  const [entries,setEntries]=useState<Entry[]>([]),[recipes,setRecipes]=useState<Recipe[]>([]),[weights,setWeights]=useState<{id:string;profile_id:string;date:string;weight:number}[]>([]);
  const [pantry,setPantry]=useState<PantryItem[]>([]);
  const [food,setFood]=useState(emptyMealDraft),[weight,setWeight]=useState(0);
@@ -41,7 +51,9 @@ export default function Home(){
     const defaults=defaultProfiles.map(profile=>({owner_id:account,slot:profile.id,name:profile.name,sex:profile.sex,age:profile.age,weight:profile.weight,height:profile.height,activity:profile.activity,body_fat:profile.body_fat,goal:profile.goal,adjustment:profile.adjustment,macro_plan:profile.macro_plan??'moderate'}));
     const bootstrap=await db.from('profiles').upsert(defaults,{onConflict:'owner_id,slot',ignoreDuplicates:true});
     if(bootstrap.error)throw bootstrap.error;
-    const [ps,es,rs,ws,receipts,pantryResult]=await Promise.all(['profiles','entries','recipes','weights','import_receipts','pantry_items'].map(table=>db.from(table).select('*').eq('owner_id',account)));
+    // Entries feed both the diary and historical overview; fetch beyond the API's row limit.
+    const loadEntries=async()=>{const rows:Entry[]=[];let cursor:string|null=null;for(;;){let query=db.from('entries').select('*').eq('owner_id',account).order('id').limit(500);if(cursor)query=query.gt('id',cursor);const result=await query;if(result.error)throw result.error;const page=result.data||[];rows.push(...page as Entry[]);if(page.length<500)break;cursor=page[page.length-1].id;}return {data:rows,error:null};};
+    const [ps,es,rs,ws,receipts,pantryResult]=await Promise.all([db.from('profiles').select('*').eq('owner_id',account),loadEntries(),...['recipes','weights','import_receipts','pantry_items'].map(table=>db.from(table).select('*').eq('owner_id',account))]);
     for(const result of [ps,es,rs,ws,receipts,pantryResult])if(result.error)throw result.error;
     if(cancelled)return;
     const lookup=new Map((ps.data||[]).map(profile=>[profile.id,profile.slot]));

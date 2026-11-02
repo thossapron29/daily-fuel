@@ -8,7 +8,8 @@ async function compile(path){return ts.transpileModule(await readFile(new URL(pa
 const apiURL=await moduleUrl('../lib/gpt-api.ts');
 const serverURL=encode((await compile('../lib/gpt-server.ts')).replace("'./gpt-api'",JSON.stringify(apiURL)));
 const schemaURL=encode((await compile('../lib/gpt-openapi.ts')).replace("'./gpt-api'",JSON.stringify(apiURL)));
-const mcpSource=(await compile('../lib/mcp.ts')).replace("'./gpt-api'",JSON.stringify(apiURL)).replace("'./gpt-server'",JSON.stringify(serverURL)).replace("'./gpt-openapi'",JSON.stringify(schemaURL));
+const summaryURL=await moduleUrl('../lib/daily-summary.ts');
+const mcpSource=(await compile('../lib/mcp.ts')).replace("'./gpt-api'",JSON.stringify(apiURL)).replace("'./gpt-server'",JSON.stringify(serverURL)).replace("'./gpt-openapi'",JSON.stringify(schemaURL)).replace("'./daily-summary'",JSON.stringify(summaryURL));
 const mcp=await import(encode(mcpSource));
 const {authorizationParams,MCP_RESOURCE,MCP_CALLBACK}=await import(apiURL);
 const {handleMcp,mcpTools,resourceMetadata,authorizationMetadata}=mcp;
@@ -27,7 +28,7 @@ test('MCP discovery provides consistent issuer/resource, S256 and explicit stati
 test('stateless MCP initializes, lists tools publicly, acknowledges notifications and rejects malformed/origin requests',async()=>{
  const initialized=await handleMcp(request({jsonrpc:'2.0',id:1,method:'initialize',params:{protocolVersion:'2025-11-25'}}));
  assert.equal((await initialized.json()).result.protocolVersion,'2025-11-25');
- const tools=await (await handleMcp(request({jsonrpc:'2.0',id:2,method:'tools/list'}))).json();assert.equal(tools.result.tools.length,3);
+ const tools=await (await handleMcp(request({jsonrpc:'2.0',id:2,method:'tools/list'}))).json();assert.equal(tools.result.tools.length,4);
  assert.equal((await handleMcp(request({jsonrpc:'2.0',method:'notifications/initialized'}))).status,202);
  assert.equal((await handleMcp(request([{jsonrpc:'2.0',id:1,method:'ping'}]))).status,400);
  assert.equal((await handleMcp(request({jsonrpc:'2.0',id:3,method:'ping'},{Origin:'https://evil.example'}))).status,403);
@@ -35,7 +36,8 @@ test('stateless MCP initializes, lists tools publicly, acknowledges notification
  const sse=await handleMcp(request({jsonrpc:'2.0',id:5,method:'ping'},{Accept:'text/event-stream'}));assert.match(sse.headers.get('Content-Type'),/text\/event-stream/);assert.match(await sse.text(),/^event: message/);
 });
 test('tools advertise OAuth; receipt tool is read-only and cannot approve a meal',async()=>{
- assert.deepEqual(mcpTools.map(t=>t.name),['getMealRecipients','prepareMealBatch','getMealBatchStatus']);
+ assert.deepEqual(mcpTools.map(t=>t.name),['getMealRecipients','prepareMealBatch','getMealBatchStatus','getDailyNutritionSummary']);
+ assert.equal(mcpTools[3].annotations.readOnlyHint,true);
  assert.equal(mcpTools[2].annotations.readOnlyHint,true);assert.equal(mcpTools[1].annotations.readOnlyHint,false);
  for(const tool of mcpTools)assert.deepEqual(tool.securitySchemes,[{type:'oauth2',scopes:['meals.write']}]);
  const response=await handleMcp(request({jsonrpc:'2.0',id:6,method:'tools/call',params:{name:'getMealRecipients',arguments:{}}}));
@@ -55,5 +57,14 @@ test('MCP calls the existing gateway with server-bound audience and returns web 
   await call('getMealBatchStatus',{draft_id:uuid});assert.equal(calls.at(-1).action,'confirm');assert.deepEqual(Object.keys(calls.at(-1).payload).sort(),['access_token','draft_id','resource']);
   const count=calls.length;assert.equal((await call('getMealBatchStatus',{draft_id:uuid,approved:true})).result.isError,true);assert.equal(calls.length,count);
   globalThis.fetch=async()=>Response.json({code:'28000'},{status:401});assert.equal((await handleMcp(request({jsonrpc:'2.0',id:8,method:'tools/call',params:{name:'getMealRecipients'}},auth))).status,401);
+ }finally{globalThis.fetch=before.fetch;for(const [key,value] of Object.entries({NEXT_PUBLIC_SUPABASE_URL:before.url,NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:before.key})){if(value===undefined)delete process.env[key];else process.env[key]=value}}
+});
+test('daily summary calls read-only consent-gated gateway and rejects extra arguments',async()=>{
+ const before={fetch:globalThis.fetch,url:process.env.NEXT_PUBLIC_SUPABASE_URL,key:process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY};
+ try{process.env.NEXT_PUBLIC_SUPABASE_URL='https://fixture.supabase.co';process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY='fixture';let calls=0;
+ globalThis.fetch=async(url,options)=>{calls++;assert.match(String(url),/\/rpc\/daily_summary_bridge$/);const body=JSON.parse(options.body);assert.equal(body.action,'read');assert.equal(body.payload.resource,MCP_RESOURCE);return Response.json({date:'2026-10-28',profiles:[{person:'new',name:'Fixture',goal:'lose',macro_plan:'moderate',targets:{calories:1800},entries:[]}]})};
+ const call=async(args)=>await (await handleMcp(request({jsonrpc:'2.0',id:1,method:'tools/call',params:{name:'getDailyNutritionSummary',arguments:args}},{Authorization:`Bearer ${token}`}))).json();
+ const result=await call({date:'2026-10-28',person:'new'});assert.equal(result.result.structuredContent.profiles[0].meal_count,0);assert.equal(result.result.structuredContent.profiles[0].optional_nutrients.sodium_mg.value,null);
+ assert.equal((await call({date:'2026-10-28',person:'new',owner:'foreign'})).result.isError,true);assert.equal(calls,1);
  }finally{globalThis.fetch=before.fetch;for(const [key,value] of Object.entries({NEXT_PUBLIC_SUPABASE_URL:before.url,NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:before.key})){if(value===undefined)delete process.env[key];else process.env[key]=value}}
 });
